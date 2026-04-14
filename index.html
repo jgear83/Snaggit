@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SnaggIt</title>
+<link rel="manifest" href="data:application/json,{%22name%22:%22SnaggIt%22,%22short_name%22:%22SnaggIt%22,%22display%22:%22standalone%22,%22background_color%22:%22%230f0f0f%22,%22theme_color%22:%22%23e8b84b%22}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SnaggIt">
+<meta name="theme-color" content="#0f0f0f">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface2: #242424;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.15);
+  --text: #f0ede8;
+  --muted: #888880;
+  --accent: #e8b84b;
+  --accent-dim: rgba(232,184,75,0.12);
+  --open: #e8b84b;
+  --inprogress: #4b9fe8;
+  --closed: #4be87a;
+  --overdue: #e8504b;
+  --r: 12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;}
+
+/* ── LOADING ── */
+#loading-screen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+#loading-screen .logo{font-family:'Syne',sans-serif;font-size:32px;font-weight:700;color:var(--accent);letter-spacing:2px;}
+#loading-screen .sub{font-size:13px;color:var(--muted);}
+.spin{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── NAV ── */
+.nav{display:flex;align-items:center;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.nav-brand{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;padding:0 16px;color:var(--accent);letter-spacing:1.5px;white-space:nowrap;border-right:1px solid var(--border);height:100%;display:flex;align-items:center;}
+.nav-tabs{display:flex;}
+.nav-tab{padding:13px 16px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap;font-family:'IBM Plex Sans',sans-serif;}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 12px;flex-shrink:0;}
+.project-select{background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;max-width:140px;}
+.project-select option{background:var(--surface2);}
+.btn-np{background:none;border:1px solid var(--border2);color:var(--muted);padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:all 0.15s;white-space:nowrap;}
+.btn-np:hover{border-color:var(--accent);color:var(--accent);}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--closed);flex-shrink:0;title:'Synced';}
+.sync-dot.syncing{background:var(--open);animation:pulse 1s infinite;}
+.sync-dot.error{background:var(--overdue);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* ── VIEWS ── */
+.views{flex:1;overflow:hidden;position:relative;}
+.view{position:absolute;inset:0;overflow-y:auto;display:none;padding:20px;-webkit-overflow-scrolling:touch;}
+.view.active{display:block;}
+
+/* ── STAT CARDS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.stat-card.s-open::before{background:var(--open);}
+.stat-card.s-ip::before{background:var(--inprogress);}
+.stat-card.s-closed::before{background:var(--closed);}
+.stat-card.s-overdue::before{background:var(--overdue);}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:'IBM Plex Mono',monospace;}
+.stat-num{font-family:'Syne',sans-serif;font-size:32px;font-weight:700;line-height:1;}
+.s-open .stat-num{color:var(--open);}
+.s-ip .stat-num{color:var(--inprogress);}
+.s-closed .stat-num{color:var(--closed);}
+.s-overdue .stat-num{color:var(--overdue);}
+
+/* ── FILTERS ── */
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.fsel{background:var(--surface);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:6px;font-size:12px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;}
+.fsel option{background:var(--surface);}
+.fclear{background:none;border:1px solid var(--border);color:var(--muted);padding:7px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:all 0.15s;}
+.fclear:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── DEFECT LIST ── */
+.defect-list{display:flex;flex-direction:column;gap:8px;}
+.defect-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);display:flex;cursor:pointer;transition:border-color 0.15s;overflow:hidden;}
+.defect-row:hover{border-color:var(--border2);}
+.defect-thumb{width:72px;height:72px;flex-shrink:0;object-fit:cover;}
+.defect-thumb-ph{width:72px;height:72px;flex-shrink:0;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px;}
+.defect-info{flex:1;padding:10px 12px;min-width:0;}
+.defect-top{display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap;}
+.defect-id{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);}
+.pill{font-size:9px;font-weight:500;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;font-family:'IBM Plex Mono',monospace;}
+.pill-Open{background:rgba(232,184,75,0.15);color:var(--open);}
+.pill-In-Progress{background:rgba(75,159,232,0.15);color:var(--inprogress);}
+.pill-Closed{background:rgba(75,232,122,0.15);color:var(--closed);}
+.pill-Overdue{background:rgba(232,80,75,0.15);color:var(--overdue);}
+.defect-desc{font-size:12px;color:var(--text);line-height:1.4;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.defect-meta{display:flex;gap:10px;flex-wrap:wrap;}
+.defect-meta span{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+.defect-due-col{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:0 14px;flex-shrink:0;}
+.due-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;font-family:'IBM Plex Mono',monospace;}
+.due-val{font-size:12px;font-weight:500;margin-top:2px;}
+.due-val.overdue{color:var(--overdue);}
+.due-val.soon{color:var(--open);}
+
+/* ── REGISTER TABLE ── */
+.reg-toolbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+.reg-search{flex:1;min-width:180px;background:var(--surface);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:'IBM Plex Sans',sans-serif;}
+.reg-search::placeholder{color:var(--muted);}
+.reg-search:focus{outline:none;border-color:var(--accent);}
+.btn-exp{background:none;border:1px solid var(--border2);color:var(--muted);padding:8px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:all 0.15s;}
+.btn-exp:hover{border-color:var(--accent);color:var(--accent);}
+.reg-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{text-align:left;padding:8px 10px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:'IBM Plex Mono',monospace;border-bottom:1px solid var(--border2);white-space:nowrap;cursor:pointer;}
+th:hover{color:var(--text);}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:hover td{background:var(--surface2);}
+tr:last-child td{border-bottom:none;}
+td.mono{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);}
+td img.thumb{width:40px;height:40px;object-fit:cover;border-radius:5px;cursor:pointer;}
+.td-nophoto{width:40px;height:40px;background:var(--surface2);border-radius:5px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;}
+
+/* ── CAPTURE ── */
+.cap-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:860px;}
+@media(max-width:600px){.cap-grid{grid-template-columns:1fr;}}
+.cap-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;}
+.cap-card.full{grid-column:1/-1;}
+.cap-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:12px;}
+.cam-box{width:100%;aspect-ratio:4/3;background:#000;border-radius:8px;overflow:hidden;}
+.cam-box video,.cam-box canvas{width:100%;height:100%;object-fit:cover;display:block;}
+.cam-box canvas{display:none;}
+#cap-prev{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;display:none;}
+.ph-empty{width:100%;aspect-ratio:4/3;background:var(--surface2);border-radius:8px;border:1.5px dashed var(--border2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;}
+.cbr{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.cb{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:'IBM Plex Sans',sans-serif;transition:all 0.15s;}
+.cb:active{transform:scale(0.97);}
+.cb-accent{background:var(--accent);color:#0f0f0f;}
+.cb-accent:hover{background:#f0c85a;}
+.cb-accent:disabled{background:var(--surface2);color:var(--muted);cursor:not-allowed;transform:none;}
+.cb-dark{background:var(--surface2);color:var(--text);border:1px solid var(--border2);}
+.cb-dark:hover{background:#2c2c2c;}
+.cb-red{background:#c0392b;color:#fff;}
+.cb-green{background:#27ae60;color:#fff;}
+.rec-row{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--overdue);}
+audio{width:100%;margin-top:10px;border-radius:6px;}
+.tx-box{background:var(--surface2);border-radius:8px;padding:12px;font-size:13px;line-height:1.7;color:var(--text);min-height:72px;margin-top:8px;}
+.tx-box.empty{color:var(--muted);font-style:italic;}
+.loading-row{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;}
+.ff{margin-bottom:12px;}
+.ff label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:5px;}
+.fi{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:9px 11px;border-radius:6px;font-size:13px;font-family:'IBM Plex Sans',sans-serif;}
+.fi:focus{outline:none;border-color:var(--accent);}
+.fi option{background:var(--surface2);}
+.det-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
+.save-bar{background:var(--accent-dim);border:1px solid rgba(232,184,75,0.25);border-radius:var(--r);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.save-bar p{font-size:13px;color:var(--text);}
+.save-bar strong{color:var(--accent);}
+
+/* ── MODAL ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;align-items:center;justify-content:center;padding:16px;}
+.overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);}
+.modal-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:600;}
+.modal-x{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:2px 6px;}
+.modal-body{padding:18px;}
+.modal-photo{width:100%;border-radius:10px;margin-bottom:14px;}
+.mf{margin-bottom:12px;}
+.mf label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:5px;}
+.mf p{font-size:13px;line-height:1.6;color:var(--text);}
+.mf input,.mf select{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:8px 11px;border-radius:6px;font-size:13px;font-family:'IBM Plex Sans',sans-serif;}
+.mf input:focus,.mf select:focus{outline:none;border-color:var(--accent);}
+.mf select option{background:var(--surface2);}
+.modal-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.modal-actions{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}
+.btn-del{background:none;border:1px solid rgba(232,80,75,0.3);color:var(--overdue);padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;margin-right:auto;}
+.btn-del:hover{background:rgba(232,80,75,0.1);}
+.btn-save-m{background:var(--accent);color:#0f0f0f;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;}
+.btn-email-m{background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;}
+.proj-modal{background:var(--surface);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:380px;}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:50px 20px;color:var(--muted);}
+.empty .ei{font-size:36px;margin-bottom:10px;opacity:0.4;}
+.empty p{font-size:13px;line-height:1.6;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--border2);color:var(--text);padding:10px 20px;border-radius:40px;font-size:13px;opacity:0;transition:all 0.3s;z-index:500;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+@media(max-width:500px){
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .defect-due-col{display:none;}
+  .view{padding:12px;}
+  .modal-2col{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="logo"><span style="color:#e8b84b">S</span><span style="color:#4b9fe8">N</span><span style="color:#4be87a">A</span><span style="color:#e8504b">G</span><span style="color:#e8b84b">G</span><span style="color:#4b9fe8">I</span><span style="color:#4be87a">T</span></div>
+  <div class="spin"></div>
+  <div class="sub">Connecting to database…</div>
+</div>
+
+<nav class="nav" id="main-nav" style="display:none">
+  <div class="nav-brand"><span style="color:#e8b84b">S</span><span style="color:#4b9fe8">N</span><span style="color:#4be87a">A</span><span style="color:#e8504b">G</span><span style="color:#e8b84b">G</span><span style="color:#4b9fe8">I</span><span style="color:#4be87a">T</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showView('dashboard')">Dashboard</button>
+    <button class="nav-tab" onclick="showView('register')">Register</button>
+    <button class="nav-tab" onclick="showView('capture')">＋ New</button>
+    <button class="nav-tab" id="tab-users" onclick="showView('users')" style="display:none">Users</button>
+  </div>
+  <div class="nav-right">
+    <div class="sync-dot" id="sync-dot" title="Synced"></div>
+    <select class="project-select" id="project-select" onchange="switchProject()"></select>
+    <button class="btn-np" onclick="showProjModal()">+ Project</button>
+  </div>
+</nav>
+
+<div class="views" id="main-views" style="display:none">
+
+  <!-- DASHBOARD -->
+  <div class="view active" id="view-dashboard">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">Defects Register</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="dash-proj-name">—</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;padding-top:4px;" id="last-updated"></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card s-open"><div class="stat-label">Open</div><div class="stat-num" id="s-open">—</div></div>
+      <div class="stat-card s-ip"><div class="stat-label">In Progress</div><div class="stat-num" id="s-ip">—</div></div>
+      <div class="stat-card s-closed"><div class="stat-label">Closed</div><div class="stat-num" id="s-closed">—</div></div>
+      <div class="stat-card s-overdue"><div class="stat-label">Overdue</div><div class="stat-num" id="s-overdue">—</div></div>
+    </div>
+    <div class="filter-row">
+      <select class="fsel" id="df-level" onchange="renderDashboard()"><option value="">All levels</option></select>
+      <select class="fsel" id="df-room" onchange="renderDashboard()"><option value="">All rooms</option></select>
+      <select class="fsel" id="df-contractor" onchange="renderDashboard()"><option value="">All contractors</option></select>
+      <select class="fsel" id="df-status" onchange="renderDashboard()">
+        <option value="">All statuses</option>
+        <option>Open</option><option>In Progress</option><option>Closed</option><option>Overdue</option>
+      </select>
+      <button class="fclear" onclick="clearFilters()">Clear</button>
+    </div>
+    <div class="defect-list" id="defect-list"></div>
+    <div class="empty" id="dash-empty" style="display:none"><div class="ei">🔍</div><p>No defects match your filters.</p></div>
+  </div>
+
+  <!-- REGISTER -->
+  <div class="view" id="view-register">
+    <div class="reg-toolbar">
+      <input class="reg-search" id="reg-search" placeholder="Search description, room, contractor…" oninput="renderRegister()">
+      <select class="fsel" id="rf-status" onchange="renderRegister()">
+        <option value="">All statuses</option>
+        <option>Open</option><option>In Progress</option><option>Closed</option><option>Overdue</option>
+      </select>
+      <button class="btn-exp" onclick="exportCSV()">↓ CSV</button>
+      <button class="btn-exp" onclick="exportPDF()">↓ PDF</button>
+    </div>
+    <div class="reg-wrap">
+      <table>
+        <thead><tr>
+          <th onclick="sortBy('seqId')">ID</th>
+          <th>Photo</th>
+          <th onclick="sortBy('level')">Level</th>
+          <th onclick="sortBy('room')">Room / Area</th>
+          <th onclick="sortBy('description')">Description</th>
+          <th onclick="sortBy('contractor')">Contractor</th>
+          <th onclick="sortBy('status')">Status</th>
+          <th onclick="sortBy('dueDate')">Due Date</th>
+        </tr></thead>
+        <tbody id="reg-tbody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="reg-empty" style="display:none"><div class="ei">📋</div><p>No defects yet.<br>Tap <strong>+ New</strong> to log your first.</p></div>
+  </div>
+
+  <!-- CAPTURE -->
+  <div class="view" id="view-capture">
+    <div class="cap-grid">
+      <!-- Photo -->
+      <div class="cap-card">
+        <div class="cap-lbl">1 — Photo</div>
+        <div class="ph-empty" id="cap-empty-ph">No photo</div>
+        <div class="cam-box" id="cap-cam" style="display:none"><video id="cap-vid" autoplay playsinline></video><canvas id="cap-canvas"></canvas></div>
+        <img id="cap-prev" alt="Defect photo" />
+        <div class="cbr">
+          <button class="cb cb-dark" id="btn-cam" onclick="capOpenCam()">📷 Camera</button>
+          <button class="cb cb-green" id="btn-snap" style="display:none" onclick="capSnap()">✓ Snap</button>
+          <button class="cb cb-dark" id="btn-retake" style="display:none" onclick="capRetake()">Retake</button>
+        </div>
+      </div>
+      <!-- Audio + Transcript -->
+      <div class="cap-card">
+        <div class="cap-lbl">2 — Voice Note</div>
+        <div class="cbr">
+          <button class="cb cb-red" id="btn-rec" onclick="capStartRec()">🎙 Record</button>
+          <button class="cb cb-dark" id="btn-stoprec" style="display:none" onclick="capStopRec()">⏹ Stop</button>
+        </div>
+        <div class="rec-row" id="rec-ind" style="display:none"><div class="pulse" style="background:var(--overdue);width:8px;height:8px;border-radius:50%;animation:pulse 1s infinite;"></div> Recording…</div>
+        <audio id="cap-audio" controls style="display:none"></audio>
+        <div style="margin-top:16px;">
+          <div class="cap-lbl">3 — Transcript</div>
+          <div class="tx-box empty" id="cap-tx">Record audio, then transcribe.</div>
+          <div class="cbr"><button class="cb cb-accent" id="btn-tx" onclick="capTranscribe()">🎙 Transcribe voice</button></div>
+        </div>
+      </div>
+      <!-- Details -->
+      <div class="cap-card full">
+        <div class="cap-lbl">4 — Defect Details</div>
+        <div class="det-grid">
+          <div class="ff"><label>Level</label><input class="fi" id="cap-level" placeholder="e.g. L3, Roof" list="dl-level"><datalist id="dl-level"></datalist></div>
+          <div class="ff"><label>Room / Area</label><input class="fi" id="cap-room" placeholder="e.g. Apt 302" list="dl-room"><datalist id="dl-room"></datalist></div>
+          <div class="ff"><label>Contractor</label><input class="fi" id="cap-con" placeholder="e.g. Smith Plumbing" list="dl-con"><datalist id="dl-con"></datalist></div>
+          <div class="ff"><label>Due Date</label><input class="fi" id="cap-due" type="date"></div>
+          <div class="ff"><label>Status</label>
+            <select class="fi" id="cap-status"><option>Open</option><option>In Progress</option><option>Closed</option><option>Overdue</option></select>
+          </div>
+          <div class="ff" style="grid-column:1/-1"><label>Description (leave blank to use transcript)</label>
+            <input class="fi" id="cap-desc" placeholder="Brief description…">
+          </div>
+        </div>
+      </div>
+      <!-- Save -->
+      <div class="cap-card full save-bar" id="cap-savebar" style="display:none">
+        <p>Save to <strong id="cap-proj-label">project</strong></p>
+        <button class="cb cb-accent" onclick="capSave()" id="btn-save-cap">💾 Save to Register</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- USERS -->
+  <div class="view" id="view-users">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">User Management</div>
+      <button class="cb cb-accent" onclick="showInviteModal()">+ Invite User</button>
+    </div>
+    <div id="users-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <div class="empty" id="users-empty" style="display:none"><div class="ei">👥</div><p>No users yet.<br>Invite someone to get started.</p></div>
+  </div>
+
+</div>
+
+<!-- DEFECT MODAL -->
+<div class="overlay" id="defect-overlay" onclick="closeDefectModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-hdr">
+      <div class="modal-title" id="m-title">Defect</div>
+      <button class="modal-x" onclick="closeDefectModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <img id="m-photo" class="modal-photo" style="display:none" alt="">
+      <audio id="m-audio" controls style="display:none;width:100%;margin-bottom:14px;"></audio>
+      <div class="mf"><label>Description</label><p id="m-desc"></p></div>
+      <div class="modal-2col">
+        <div class="mf"><label>Level</label><input id="m-level"></div>
+        <div class="mf"><label>Room / Area</label><input id="m-room"></div>
+        <div class="mf"><label>Contractor</label><input id="m-con"></div>
+        <div class="mf"><label>Due Date</label><input id="m-due" type="date"></div>
+        <div class="mf" style="grid-column:1/-1"><label>Status</label>
+          <select id="m-status"><option>Open</option><option>In Progress</option><option>Closed</option><option>Overdue</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-del" onclick="deleteDefect()">Delete</button>
+      <button class="btn-email-m" onclick="emailDefect()">✉ Email</button>
+      <button class="btn-save-m" onclick="saveModalEdits()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT MODAL -->
+<div class="overlay" id="proj-overlay" onclick="closeProjModal(event)">
+  <div class="proj-modal" onclick="event.stopPropagation()">
+    <div class="modal-hdr"><div class="modal-title">New Project</div><button class="modal-x" onclick="closeProjModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="ff"><label>Project Name</label><input class="fi" id="proj-name-inp" placeholder="e.g. 123 Collins St – Tower A"></div>
+    </div>
+    <div class="modal-actions"><button class="btn-save-m" onclick="createProject()">Create Project</button></div>
+  </div>
+</div>
+
+
+<!-- INVITE MODAL -->
+<div class="overlay" id="invite-overlay" onclick="closeInviteModal(event)">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:480px;">
+    <div class="modal-hdr">
+      <div class="modal-title">Invite User</div>
+      <button class="modal-x" onclick="closeInviteModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="ff"><label>Email Address</label><input class="fi" id="inv-email" type="email" placeholder="contractor@example.com"></div>
+      <div class="ff"><label>Company Name</label><input class="fi" id="inv-company" placeholder="e.g. Smith Plumbing"></div>
+      <div class="ff"><label>Project Access</label>
+        <select class="fi" id="inv-project">
+          <option value="all">All Projects (Admin)</option>
+        </select>
+      </div>
+      <div class="ff"><label>Role</label>
+        <select class="fi" id="inv-role" onchange="updateInvitePermissions()">
+          <option value="admin">Admin — full access</option>
+          <option value="pm">Project Manager — full project access</option>
+          <option value="contractor">Contractor — limited access</option>
+        </select>
+      </div>
+      <div id="inv-permissions" style="background:var(--surface2);border-radius:8px;padding:14px;margin-top:4px;display:none;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;">Permissions</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer;">
+          <input type="checkbox" id="inv-can-add" checked> Can add new defects
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer;">
+          <input type="checkbox" id="inv-can-update" checked> Can update defect status
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" id="inv-own-only"> See only their company's defects
+        </label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-save-m" onclick="generateInvite()">Generate Invite Link</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVITE LINK MODAL -->
+<div class="overlay" id="invite-link-overlay" onclick="closeInviteLinkModal(event)">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:440px;">
+    <div class="modal-hdr">
+      <div class="modal-title">Invite Link Ready</div>
+      <button class="modal-x" onclick="closeInviteLinkModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Share this link with the user. It expires in 7 days.</p>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px;font-size:11px;font-family:'IBM Plex Mono',monospace;word-break:break-all;color:var(--text);margin-bottom:14px;" id="invite-link-display"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="cb cb-dark" style="flex:1" onclick="copyInviteLink()">📋 Copy link</button>
+        <button class="cb cb-accent" style="flex:1" onclick="emailInviteLink()">✉ Send via email</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SIGN IN MODAL -->
+<div class="overlay" id="signin-overlay">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:400px;">
+    <div class="modal-hdr">
+      <div class="modal-title"><span style="color:#e8b84b">S</span><span style="color:#4b9fe8">N</span><span style="color:#4be87a">A</span><span style="color:#e8504b">G</span><span style="color:#e8b84b">G</span><span style="color:#4b9fe8">I</span><span style="color:#4be87a">T</span></div>
+    </div>
+    <div class="modal-body">
+      <div id="signin-invite-banner" style="display:none;background:var(--accent-dim);border:1px solid rgba(232,184,75,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;">
+        You've been invited to join a project. Sign in or create an account to continue.
+      </div>
+      <div id="signin-error" style="display:none;background:rgba(232,80,75,0.1);border:1px solid rgba(232,80,75,0.3);border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px;color:var(--overdue);"></div>
+      <div class="ff"><label>Email</label><input class="fi" id="si-email" type="email" placeholder="you@example.com"></div>
+      <div class="ff"><label>Password</label><input class="fi" id="si-password" type="password" placeholder="••••••••"></div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+        <button class="cb cb-accent" style="width:100%;justify-content:center;" onclick="signInEmail()">Sign in</button>
+        <button class="cb cb-dark" style="width:100%;justify-content:center;" onclick="signUpEmail()">Create account</button>
+        <div style="text-align:center;font-size:11px;color:var(--muted);margin:4px 0;">or</div>
+        <button class="cb cb-dark" style="width:100%;justify-content:center;" onclick="signInGoogle()">Sign in with Google</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, getDocs, getDoc, setDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDcGgvM1JPXQzEb-elzneI0x_5FEezFBVA",
+  authDomain: "snaggit-8ea0a.firebaseapp.com",
+  projectId: "snaggit-8ea0a",
+  storageBucket: "snaggit-8ea0a.firebasestorage.app",
+  messagingSenderId: "92003726441",
+  appId: "1:92003726441:web:8e169bf7d21c3a2abf1ef8"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+
+// ── STATE ──
+let projects = {};
+let currentProject = null;
+let defects = [];
+let unsubscribe = null;
+let captureState = { photo: null, audioBlob: null, audioDataUrl: null, transcript: '' };
+let cameraStream = null, mediaRecorder = null, audioChunks = [];
+let currentModalId = null;
+let sortCol = 'seqId', sortDir = 1;
+let currentUser = null;
+let currentUserProfile = null;
+let pendingInviteToken = null;
+let generatedInviteLink = '';
+
+const syncDot = document.getElementById('sync-dot');
+function setSyncing(){ syncDot.className='sync-dot syncing'; }
+function setSynced(){ syncDot.className='sync-dot'; }
+function setSyncError(){ syncDot.className='sync-dot error'; }
+
+// ── CHECK FOR INVITE TOKEN IN URL ──
+function checkInviteToken() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('invite');
+  if (token) {
+    pendingInviteToken = token;
+    document.getElementById('signin-invite-banner').style.display = 'block';
+  }
+}
+
+// ── INIT ──
+async function init() {
+  checkInviteToken();
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      currentUser = user;
+      await loadUserProfile(user);
+      await loadProjects();
+      showLoaded();
+      if (pendingInviteToken) await processInvite(pendingInviteToken);
+    } else {
+      currentUser = null;
+      currentUserProfile = null;
+      document.getElementById('loading-screen').style.display = 'none';
+      document.getElementById('main-nav').style.display = 'none';
+      document.getElementById('main-views').style.display = 'none';
+      document.getElementById('signin-overlay').classList.add('open');
+    }
+  });
+}
+
+async function loadUserProfile(user) {
+  try {
+    const ref = doc(db, 'users', user.uid);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      currentUserProfile = snap.data();
+    } else {
+      // First time — check if they are the first user (make admin)
+      const allUsers = await getDocs(collection(db, 'users'));
+      const isFirst = allUsers.empty;
+      currentUserProfile = {
+        email: user.email,
+        name: user.displayName || user.email,
+        role: isFirst ? 'admin' : 'pending',
+        projects: isFirst ? 'all' : [],
+        canAdd: isFirst ? true : false,
+        canUpdate: isFirst ? true : false,
+        ownOnly: false,
+        company: ''
+      };
+      await setDoc(ref, currentUserProfile);
+    }
+    updateNavForRole();
+  } catch(e) { console.error('loadUserProfile error', e); }
+}
+
+function updateNavForRole() {
+  const isAdmin = currentUserProfile && currentUserProfile.role === 'admin';
+  document.getElementById('tab-users').style.display = isAdmin ? 'block' : 'none';
+  // Add sign out button to nav-right if not already there
+  if (!document.getElementById('signout-btn')) {
+    const btn = document.createElement('button');
+    btn.id = 'signout-btn';
+    btn.className = 'btn-np';
+    btn.textContent = 'Sign out';
+    btn.onclick = () => { signOut(auth); };
+    document.querySelector('.nav-right').appendChild(btn);
+  }
+  // Show user email
+  if (!document.getElementById('user-email-label')) {
+    const lbl = document.createElement('span');
+    lbl.id = 'user-email-label';
+    lbl.style.cssText = 'font-size:11px;color:var(--muted);display:none;';
+    document.querySelector('.nav-right').prepend(lbl);
+  }
+  document.getElementById('user-email-label').textContent = currentUser?.email || '';
+  document.getElementById('user-email-label').style.display = 'block';
+}
+
+async function loadProjects() {
+  projects = {};
+  const isAdmin = currentUserProfile?.role === 'admin';
+  if (isAdmin) {
+    const snap = await getDocs(collection(db, 'projects'));
+    snap.forEach(d => { projects[d.id] = { name: d.data().name, id: d.id }; });
+  } else {
+    const allowedProjects = currentUserProfile?.projects || [];
+    for (const pid of allowedProjects) {
+      const snap = await getDoc(doc(db, 'projects', pid));
+      if (snap.exists()) projects[snap.id] = { name: snap.data().name, id: snap.id };
+    }
+  }
+  renderProjectSelect();
+  if (Object.keys(projects).length === 0) {
+    const isAdmin = currentUserProfile?.role === 'admin';
+    if (isAdmin) setTimeout(showProjModal, 500);
+    else { document.getElementById('dash-proj-name').textContent = 'No projects assigned yet'; }
+  } else {
+    const saved = localStorage.getItem('snaggit_current_project');
+    currentProject = (saved && projects[saved]) ? saved : Object.keys(projects)[0];
+    renderProjectSelect();
+    subscribeToDefects();
+  }
+}
+
+// ── PROCESS INVITE ──
+async function processInvite(token) {
+  try {
+    const inviteRef = doc(db, 'invites', token);
+    const inviteSnap = await getDoc(inviteRef);
+    if (!inviteSnap.exists()) { toast('Invite not found or expired'); return; }
+    const invite = inviteSnap.data();
+    if (invite.used) { toast('Invite already used'); return; }
+    if (new Date(invite.expiresAt) < new Date()) { toast('Invite has expired'); return; }
+    // Apply permissions to user profile
+    const userRef = doc(db, 'users', currentUser.uid);
+    const updates = {
+      role: invite.role || 'contractor',
+      company: invite.company || '',
+      canAdd: invite.canAdd !== false,
+      canUpdate: invite.canUpdate !== false,
+      ownOnly: invite.ownOnly || false,
+      projects: invite.project === 'all' ? 'all' : [invite.project]
+    };
+    await updateDoc(userRef, updates);
+    await updateDoc(inviteRef, { used: true, usedBy: currentUser.uid, usedAt: new Date().toISOString() });
+    currentUserProfile = { ...currentUserProfile, ...updates };
+    // Clear invite from URL
+    window.history.replaceState({}, '', window.location.pathname);
+    pendingInviteToken = null;
+    await loadProjects();
+    toast('Welcome! Your project access has been set up.');
+  } catch(e) { toast('Error processing invite: ' + e.message); }
+}
+
+function showLoaded() {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('signin-overlay').classList.remove('open');
+  document.getElementById('main-nav').style.display = 'flex';
+  document.getElementById('main-views').style.display = 'block';
+}
+
+// ── AUTH ──
+window.signInEmail = async function() {
+  const email = document.getElementById('si-email').value.trim();
+  const pass = document.getElementById('si-password').value;
+  if (!email || !pass) { showSigninError('Please enter email and password'); return; }
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) { showSigninError(e.message.replace('Firebase: ','').replace(/\(auth.*\)/,'')); }
+}
+
+window.signUpEmail = async function() {
+  const email = document.getElementById('si-email').value.trim();
+  const pass = document.getElementById('si-password').value;
+  if (!email || !pass) { showSigninError('Please enter email and password'); return; }
+  if (pass.length < 6) { showSigninError('Password must be at least 6 characters'); return; }
+  try {
+    await createUserWithEmailAndPassword(auth, email, pass);
+  } catch(e) { showSigninError(e.message.replace('Firebase: ','').replace(/\(auth.*\)/,'')); }
+}
+
+window.signInGoogle = async function() {
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch(e) { showSigninError(e.message.replace('Firebase: ','').replace(/\(auth.*\)/,'')); }
+}
+
+function showSigninError(msg) {
+  const el = document.getElementById('signin-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── PROJECTS ──
+function renderProjectSelect() {
+  const sel = document.getElementById('project-select');
+  const keys = Object.keys(projects);
+  sel.innerHTML = keys.length
+    ? keys.map(k => `<option value="${k}" ${k===currentProject?'selected':''}>${projects[k].name}</option>`).join('')
+    : '<option value="">No projects</option>';
+}
+
+window.switchProject = function() {
+  currentProject = document.getElementById('project-select').value;
+  localStorage.setItem('snaggit_current_project', currentProject);
+  if (unsubscribe) unsubscribe();
+  defects = [];
+  subscribeToDefects();
+}
+
+window.showProjModal = function() { document.getElementById('proj-overlay').classList.add('open'); setTimeout(()=>document.getElementById('proj-name-inp').focus(),100); }
+window.closeProjModal = function(e) { if (!e || e.target===document.getElementById('proj-overlay')) document.getElementById('proj-overlay').classList.remove('open'); }
+
+window.createProject = async function() {
+  const name = document.getElementById('proj-name-inp').value.trim();
+  if (!name) return;
+  setSyncing();
+  try {
+    const ref = await addDoc(collection(db, 'projects'), { name, createdAt: new Date().toISOString() });
+    projects[ref.id] = { name, id: ref.id };
+    currentProject = ref.id;
+    localStorage.setItem('snaggit_current_project', currentProject);
+    renderProjectSelect();
+    closeProjModal();
+    document.getElementById('proj-name-inp').value = '';
+    subscribeToDefects();
+    showLoaded();
+    setSynced();
+    toast('Project created');
+  } catch(e) { setSyncError(); toast('Error creating project'); }
+}
+
+// ── REALTIME LISTENER ──
+function subscribeToDefects() {
+  if (!currentProject) return;
+  setSyncing();
+  const q = query(collection(db, 'projects', currentProject, 'defects'), orderBy('seqId','asc'));
+  unsubscribe = onSnapshot(q, snap => {
+    defects = [];
+    snap.forEach(d => defects.push({ ...d.data(), _id: d.id }));
+    checkOverdue();
+    renderDashboard();
+    renderRegister();
+    populateDataLists();
+    setSynced();
+    document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+  }, err => { setSyncError(); });
+}
+
+function checkOverdue() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  defects.forEach(d => {
+    if (d.dueDate && new Date(d.dueDate) < today && d.status !== 'Closed' && d.status !== 'Overdue') {
+      d.status = 'Overdue';
+      updateDoc(doc(db, 'projects', currentProject, 'defects', d._id), { status: 'Overdue' });
+    }
+  });
+}
+
+// ── VIEWS ──
+window.showView = function(v) {
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  ['dashboard','register','capture'].forEach((n,i)=>{ if(n===v) document.querySelectorAll('.nav-tab')[i].classList.add('active'); });
+  if (v==='capture') { populateDataLists(); updateCapSaveBar(); }
+}
+
+// ── DASHBOARD ──
+window.renderDashboard = function() {
+  const pname = currentProject && projects[currentProject] ? projects[currentProject].name : '—';
+  document.getElementById('dash-proj-name').textContent = pname;
+  document.getElementById('cap-proj-label').textContent = pname;
+
+  document.getElementById('s-open').textContent = defects.filter(d=>d.status==='Open').length;
+  document.getElementById('s-ip').textContent = defects.filter(d=>d.status==='In Progress').length;
+  document.getElementById('s-closed').textContent = defects.filter(d=>d.status==='Closed').length;
+  document.getElementById('s-overdue').textContent = defects.filter(d=>d.status==='Overdue').length;
+
+  fillSel('df-level', [...new Set(defects.map(d=>d.level).filter(Boolean))]);
+  fillSel('df-room', [...new Set(defects.map(d=>d.room).filter(Boolean))]);
+  fillSel('df-contractor', [...new Set(defects.map(d=>d.contractor).filter(Boolean))]);
+
+  const fl=document.getElementById('df-level').value;
+  const fr=document.getElementById('df-room').value;
+  const fc=document.getElementById('df-contractor').value;
+  const fs=document.getElementById('df-status').value;
+  let filtered = defects.filter(d=>(!fl||d.level===fl)&&(!fr||d.room===fr)&&(!fc||d.contractor===fc)&&(!fs||d.status===fs));
+  filtered = [...filtered].reverse();
+
+  const list=document.getElementById('defect-list');
+  const empty=document.getElementById('dash-empty');
+  list.innerHTML='';
+  if (!filtered.length) { empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  const today=new Date(); today.setHours(0,0,0,0);
+  filtered.forEach(d => {
+    const due=d.dueDate?new Date(d.dueDate):null;
+    const dl=due?Math.ceil((due-today)/86400000):null;
+    const dc=dl!==null?(dl<0?'overdue':dl<=3?'soon':''):'';
+    const ds=due?due.toLocaleDateString('en-AU',{day:'numeric',month:'short'}):'—';
+    const row=document.createElement('div');
+    row.className='defect-row';
+    row.onclick=()=>openModal(d._id);
+    row.innerHTML=`
+      ${d.photo?`<img class="defect-thumb" src="${d.photo}" alt="">`:`<div class="defect-thumb-ph">📷</div>`}
+      <div class="defect-info">
+        <div class="defect-top">
+          <span class="defect-id">#${String(d.seqId).padStart(3,'0')}</span>
+          <span class="pill pill-${(d.status||'Open').replace(' ','-')}">${d.status}</span>
+        </div>
+        <div class="defect-desc">${d.description||'(no description)'}</div>
+        <div class="defect-meta">
+          ${d.level?`<span>📍 ${d.level}</span>`:''}
+          ${d.room?`<span>🚪 ${d.room}</span>`:''}
+          ${d.contractor?`<span>👷 ${d.contractor}</span>`:''}
+        </div>
+      </div>
+      <div class="defect-due-col"><div class="due-lbl">Due</div><div class="due-val ${dc}">${ds}</div></div>`;
+    list.appendChild(row);
+  });
+}
+
+window.clearFilters = function() {
+  ['df-level','df-room','df-contractor','df-status'].forEach(id=>document.getElementById(id).value='');
+  renderDashboard();
+}
+
+function fillSel(id, vals) {
+  const el=document.getElementById(id); const cur=el.value; const first=el.options[0].text;
+  el.innerHTML=`<option value="">${first}</option>`+vals.map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');
+}
+
+// ── REGISTER ──
+window.renderRegister = function() {
+  let data=[...defects];
+  const q=document.getElementById('reg-search').value.toLowerCase();
+  const fs=document.getElementById('rf-status').value;
+  if(q) data=data.filter(d=>((d.description||'')+(d.room||'')+(d.contractor||'')+(d.level||'')).toLowerCase().includes(q));
+  if(fs) data=data.filter(d=>d.status===fs);
+  data.sort((a,b)=>{
+    let va=a[sortCol]||'',vb=b[sortCol]||'';
+    if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}
+    return va<vb?-sortDir:va>vb?sortDir:0;
+  });
+  const tbody=document.getElementById('reg-tbody');
+  const empty=document.getElementById('reg-empty');
+  tbody.innerHTML='';
+  if(!data.length){empty.style.display='block';return;}
+  empty.style.display='none';
+  const today=new Date();today.setHours(0,0,0,0);
+  data.forEach(d=>{
+    const due=d.dueDate?new Date(d.dueDate):null;
+    const dl=due?Math.ceil((due-today)/86400000):null;
+    const ds=due?due.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}):'—';
+    const dc=dl!==null&&dl<0?'color:var(--overdue)':dl!==null&&dl<=3?'color:var(--open)':'';
+    const tr=document.createElement('tr');
+    tr.style.cursor='pointer';
+    tr.onclick=()=>openModal(d._id);
+    tr.innerHTML=`
+      <td class="mono">#${String(d.seqId).padStart(3,'0')}</td>
+      <td>${d.photo?`<img class="thumb" src="${d.photo}" onclick="event.stopPropagation();openModal('${d._id}')">`:`<div class="td-nophoto">📷</div>`}</td>
+      <td>${d.level||'—'}</td>
+      <td>${d.room||'—'}</td>
+      <td style="max-width:240px">${d.description||'(no description)'}</td>
+      <td>${d.contractor||'—'}</td>
+      <td><span class="pill pill-${(d.status||'Open').replace(' ','-')}">${d.status}</span></td>
+      <td style="${dc}">${ds}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+window.sortBy = function(col) { if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=1;} renderRegister(); }
+
+// ── CAPTURE ──
+function populateDataLists() {
+  const fill=(id,vals)=>{ document.getElementById(id).innerHTML=[...new Set(vals.filter(Boolean))].map(v=>`<option value="${v}">`).join(''); };
+  fill('dl-level',defects.map(d=>d.level));
+  fill('dl-room',defects.map(d=>d.room));
+  fill('dl-con',defects.map(d=>d.contractor));
+}
+
+function updateCapSaveBar() {
+  const show = captureState.photo || captureState.audioBlob;
+  document.getElementById('cap-savebar').style.display = show ? 'flex' : 'none';
+}
+
+function stopCamera() { if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;} }
+
+window.capOpenCam = async function() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    document.getElementById('cap-vid').srcObject=cameraStream;
+    document.getElementById('cap-empty-ph').style.display='none';
+    document.getElementById('cap-cam').style.display='block';
+    document.getElementById('cap-prev').style.display='none';
+    document.getElementById('btn-cam').style.display='none';
+    document.getElementById('btn-snap').style.display='inline-flex';
+  } catch(e){alert('Camera access denied: '+e.message);}
+}
+
+window.capSnap = function() {
+  const v=document.getElementById('cap-vid'),c=document.getElementById('cap-canvas');
+  c.width=v.videoWidth;c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0);
+  captureState.photo=c.toDataURL('image/jpeg',0.75);
+  const pr=document.getElementById('cap-prev');
+  pr.src=captureState.photo;pr.style.display='block';
+  document.getElementById('cap-cam').style.display='none';
+  document.getElementById('btn-snap').style.display='none';
+  document.getElementById('btn-retake').style.display='inline-flex';
+  stopCamera();
+  updateCapSaveBar();
+}
+
+window.capRetake = function() {
+  document.getElementById('cap-prev').style.display='none';
+  document.getElementById('btn-retake').style.display='none';
+  captureState.photo=null;
+  updateCapSaveBar();
+  capOpenCam();
+}
+
+function getSupportedMimeType() {
+  const types = [
+    'audio/mp4',
+    'audio/aac',
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/ogg',
+  ];
+  for (const type of types) {
+    if (MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return '';
+}
+
+window.capStartRec = async function() {
+  try {
+    const s=await navigator.mediaDevices.getUserMedia({audio:true});
+    audioChunks=[];
+    const mimeType = getSupportedMimeType();
+    const options = mimeType ? { mimeType } : {};
+    try {
+      mediaRecorder = new MediaRecorder(s, options);
+    } catch(e) {
+      mediaRecorder = new MediaRecorder(s);
+    }
+    const actualType = mediaRecorder.mimeType || mimeType || 'audio/mp4';
+    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)audioChunks.push(e.data);};
+    mediaRecorder.onstop=async()=>{
+      captureState.audioBlob=new Blob(audioChunks,{type:actualType});
+      captureState.audioDataUrl=await blobToBase64(captureState.audioBlob);
+      const ap=document.getElementById('cap-audio');
+      ap.src=URL.createObjectURL(captureState.audioBlob);ap.style.display='block';
+      document.getElementById('btn-tx').disabled=false;document.getElementById('btn-tx').textContent='🎙 Transcribe voice';
+      s.getTracks().forEach(t=>t.stop());
+      updateCapSaveBar();
+    };
+    mediaRecorder.start();
+    document.getElementById('btn-rec').style.display='none';
+    document.getElementById('btn-stoprec').style.display='inline-flex';
+    document.getElementById('rec-ind').style.display='flex';
+  } catch(e){alert('Mic error: '+e.message);}
+}
+
+window.capStopRec = function() {
+  if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
+  document.getElementById('btn-stoprec').style.display='none';
+  document.getElementById('btn-rec').style.display='inline-flex';
+  document.getElementById('rec-ind').style.display='none';
+}
+
+window.capTranscribe = async function() {
+  const btn=document.getElementById('btn-tx');
+  const box=document.getElementById('cap-tx');
+
+  // Use Web Speech API - free, built into Safari and Chrome
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    box.innerHTML='<span style="color:var(--overdue)">Speech recognition not supported in this browser. Try Safari on iPhone or Chrome on Android.</span>';
+    return;
+  }
+
+  btn.disabled=true;
+  box.className='tx-box';
+  box.innerHTML='<div class="loading-row"><div class="spin"></div> Listening — speak now…</div>';
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.lang = 'en-AU';
+  recognition.maxAlternatives = 1;
+
+  let finalTranscript = '';
+  let silenceTimer = null;
+
+  recognition.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript + ' ';
+      }
+    }
+    box.textContent = finalTranscript.trim() || '(listening…)';
+    // Auto stop after 2 seconds of silence
+    clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(() => recognition.stop(), 2000);
+  };
+
+  recognition.onerror = (event) => {
+    box.innerHTML='<span style="color:var(--overdue)">Error: ' + event.error + '</span>';
+    btn.disabled=false;
+  };
+
+  recognition.onend = () => {
+    clearTimeout(silenceTimer);
+    if (finalTranscript.trim()) {
+      captureState.transcript = finalTranscript.trim();
+      box.textContent = captureState.transcript;
+    } else {
+      box.textContent = '(no speech detected)';
+      captureState.transcript = '(no speech detected)';
+    }
+    box.className='tx-box';
+    btn.disabled=false;
+  };
+
+  recognition.start();
+  // Safety stop after 60 seconds
+  setTimeout(() => recognition.stop(), 60000);
+}
+
+window.capSave = async function() {
+  if(!currentProject){alert('Select or create a project first.');return;}
+  const btn=document.getElementById('btn-save-cap');
+  btn.disabled=true;btn.textContent='Saving…';
+  setSyncing();
+  const nextSeq = defects.length ? Math.max(...defects.map(d=>d.seqId||0))+1 : 1;
+  const desc=document.getElementById('cap-desc').value.trim()||captureState.transcript;
+  try {
+    await addDoc(collection(db,'projects',currentProject,'defects'),{
+      seqId: nextSeq,
+      date: new Date().toISOString(),
+      photo: captureState.photo||null,
+      audio: captureState.audioDataUrl||null,
+      transcript: captureState.transcript||'',
+      description: desc,
+      level: document.getElementById('cap-level').value.trim(),
+      room: document.getElementById('cap-room').value.trim(),
+      contractor: document.getElementById('cap-con').value.trim(),
+      dueDate: document.getElementById('cap-due').value||null,
+      status: document.getElementById('cap-status').value
+    });
+    resetCapture();
+    showView('dashboard');
+    toast('Defect saved ✓');
+    setSynced();
+  } catch(e){toast('Save failed: '+e.message);setSyncError();btn.disabled=false;btn.textContent='💾 Save to Register';}
+}
+
+function resetCapture() {
+  stopCamera();
+  captureState={photo:null,audioBlob:null,audioDataUrl:null,transcript:''};
+  audioChunks=[];
+  document.getElementById('cap-empty-ph').style.display='flex';
+  document.getElementById('cap-cam').style.display='none';
+  document.getElementById('cap-prev').style.display='none';
+  document.getElementById('btn-cam').style.display='inline-flex';
+  document.getElementById('btn-snap').style.display='none';
+  document.getElementById('btn-retake').style.display='none';
+  document.getElementById('btn-rec').style.display='inline-flex';
+  document.getElementById('btn-stoprec').style.display='none';
+  document.getElementById('rec-ind').style.display='none';
+  document.getElementById('cap-audio').style.display='none';
+  document.getElementById('cap-audio').src='';
+  document.getElementById('btn-tx').disabled=true;
+  document.getElementById('cap-tx').textContent='Record audio, then transcribe.';
+  document.getElementById('cap-tx').className='tx-box empty';
+  document.getElementById('cap-savebar').style.display='none';
+  document.getElementById('cap-level').value='';
+  document.getElementById('cap-room').value='';
+  document.getElementById('cap-con').value='';
+  document.getElementById('cap-due').value='';
+  document.getElementById('cap-desc').value='';
+  document.getElementById('cap-status').value='Open';
+  document.getElementById('btn-save-cap').disabled=false;
+  document.getElementById('btn-save-cap').textContent='💾 Save to Register';
+}
+
+// ── MODAL ──
+window.openModal = function(id) {
+  const d=defects.find(x=>x._id===id);
+  if(!d)return;
+  currentModalId=id;
+  document.getElementById('m-title').textContent=`Defect #${String(d.seqId).padStart(3,'0')}`;
+  const mp=document.getElementById('m-photo');
+  if(d.photo){mp.src=d.photo;mp.style.display='block';}else mp.style.display='none';
+  const ma=document.getElementById('m-audio');
+  if(d.audio){ma.src=d.audio;ma.style.display='block';}else ma.style.display='none';
+  document.getElementById('m-desc').textContent=d.description||'(no description)';
+  document.getElementById('m-level').value=d.level||'';
+  document.getElementById('m-room').value=d.room||'';
+  document.getElementById('m-con').value=d.contractor||'';
+  document.getElementById('m-due').value=d.dueDate||'';
+  document.getElementById('m-status').value=d.status||'Open';
+  document.getElementById('defect-overlay').classList.add('open');
+}
+
+window.closeDefectModal = function(e) {
+  if(!e||e.target===document.getElementById('defect-overlay')){
+    document.getElementById('defect-overlay').classList.remove('open');
+    document.getElementById('m-audio').pause();
+  }
+}
+
+window.saveModalEdits = async function() {
+  setSyncing();
+  try {
+    await updateDoc(doc(db,'projects',currentProject,'defects',currentModalId),{
+      level:document.getElementById('m-level').value,
+      room:document.getElementById('m-room').value,
+      contractor:document.getElementById('m-con').value,
+      dueDate:document.getElementById('m-due').value||null,
+      status:document.getElementById('m-status').value
+    });
+    closeDefectModal();
+    toast('Saved ✓');
+    setSynced();
+  } catch(e){toast('Save failed');setSyncError();}
+}
+
+window.deleteDefect = async function() {
+  if(!confirm('Delete this defect? Cannot be undone.'))return;
+  setSyncing();
+  try {
+    await deleteDoc(doc(db,'projects',currentProject,'defects',currentModalId));
+    closeDefectModal();
+    toast('Defect deleted');
+    setSynced();
+  } catch(e){toast('Delete failed');setSyncError();}
+}
+
+window.emailDefect = function() {
+  const d=defects.find(x=>x._id===currentModalId);
+  if(!d)return;
+  const proj=projects[currentProject]?.name||'';
+  const subject=encodeURIComponent(`Defect Notice #${String(d.seqId).padStart(3,'0')} — ${proj}`);
+  const body=encodeURIComponent(
+    `Dear ${d.contractor||'Contractor'},\n\nPlease action the following defect.\n\n`+
+    `Project: ${proj}\nDefect #: ${String(d.seqId).padStart(3,'0')}\nLocation: ${d.level||''} — ${d.room||''}\nStatus: ${d.status}\n`+
+    (d.dueDate?`Due Date: ${new Date(d.dueDate).toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})}\n`:'')+
+    `\nDescription:\n${d.description||d.transcript||'(see photo)'}\n\n(Photo attached separately)\n\nRegards`
+  );
+  window.location.href=`mailto:?subject=${subject}&body=${body}`;
+}
+
+// ── EXPORT ──
+window.exportCSV = function() {
+  if(!defects.length){alert('No defects to export.');return;}
+  const h=['ID','Date','Level','Room/Area','Description','Contractor','Status','Due Date'];
+  const rows=defects.map(d=>[
+    `#${String(d.seqId).padStart(3,'0')}`,
+    new Date(d.date).toLocaleDateString('en-AU'),
+    d.level||'',d.room||'',
+    `"${(d.description||'').replace(/"/g,'""')}"`,
+    d.contractor||'',d.status||'',d.dueDate||''
+  ].join(','));
+  const csv=[h.join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`snaggit-${projects[currentProject]?.name||'export'}.csv`;
+  a.click();
+  toast('CSV exported');
+}
+
+window.exportPDF = function() {
+  if(!defects.length){alert('No defects to export.');return;}
+  const today=new Date().toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'});
+  const sbg={Open:'#fef3c7','In Progress':'#dbeafe',Closed:'#dcfce7',Overdue:'#fee2e2'};
+  const sfg={Open:'#92400e','In Progress':'#1e40af',Closed:'#166534',Overdue:'#991b1b'};
+  const rows=defects.map(d=>`<tr>
+    <td>#${String(d.seqId).padStart(3,'0')}</td>
+    <td>${d.level||'—'}</td><td>${d.room||'—'}</td>
+    <td>${d.description||'(no description)'}</td>
+    <td>${d.contractor||'—'}</td>
+    <td><span style="padding:2px 8px;border-radius:4px;font-size:11px;background:${sbg[d.status]||'#f3f4f6'};color:${sfg[d.status]||'#374151'}">${d.status}</span></td>
+    <td>${d.dueDate?new Date(d.dueDate).toLocaleDateString('en-AU'):'—'}</td>
+  </tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Defects Register</title>
+  <style>body{font-family:sans-serif;font-size:12px;color:#111;margin:32px;}h1{font-size:20px;margin-bottom:4px;}
+  p{color:#666;margin-bottom:20px;}table{width:100%;border-collapse:collapse;}
+  th{background:#1a1a1a;color:#fff;padding:8px 10px;text-align:left;font-size:11px;}
+  td{padding:7px 10px;border-bottom:1px solid #e5e5e5;vertical-align:top;}
+  tr:nth-child(even) td{background:#f9f9f9;}</style></head>
+  <body><h1>Defects Register</h1><p>${projects[currentProject]?.name||''} — ${today}</p>
+  <table><thead><tr><th>ID</th><th>Level</th><th>Room/Area</th><th>Description</th><th>Contractor</th><th>Status</th><th>Due Date</th></tr></thead>
+  <tbody>${rows}</tbody></table></body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),400);
+  toast('PDF ready to print/save');
+}
+
+// ── UTILS ──
+function blobToBase64(blob){return new Promise((r,j)=>{const rd=new FileReader();rd.onload=()=>r(rd.result);rd.onerror=j;rd.readAsDataURL(blob);});}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+// ── INVITE SYSTEM ──
+window.showInviteModal = function() {
+  // Populate project dropdown
+  const sel = document.getElementById('inv-project');
+  sel.innerHTML = '<option value="all">All Projects (Admin)</option>' +
+    Object.keys(projects).map(k => `<option value="${k}">${projects[k].name}</option>`).join('');
+  updateInvitePermissions();
+  document.getElementById('invite-overlay').classList.add('open');
+}
+
+window.closeInviteModal = function(e) {
+  if (!e || e.target === document.getElementById('invite-overlay'))
+    document.getElementById('invite-overlay').classList.remove('open');
+}
+
+window.closeInviteLinkModal = function(e) {
+  if (!e || e.target === document.getElementById('invite-link-overlay'))
+    document.getElementById('invite-link-overlay').classList.remove('open');
+}
+
+window.updateInvitePermissions = function() {
+  const role = document.getElementById('inv-role').value;
+  const permsDiv = document.getElementById('inv-permissions');
+  if (role === 'contractor') {
+    permsDiv.style.display = 'block';
+  } else if (role === 'pm') {
+    permsDiv.style.display = 'block';
+    document.getElementById('inv-can-add').checked = true;
+    document.getElementById('inv-can-update').checked = true;
+    document.getElementById('inv-own-only').checked = false;
+  } else {
+    permsDiv.style.display = 'none';
+  }
+}
+
+window.generateInvite = async function() {
+  const email = document.getElementById('inv-email').value.trim();
+  const company = document.getElementById('inv-company').value.trim();
+  const project = document.getElementById('inv-project').value;
+  const role = document.getElementById('inv-role').value;
+  const canAdd = document.getElementById('inv-can-add').checked;
+  const canUpdate = document.getElementById('inv-can-update').checked;
+  const ownOnly = document.getElementById('inv-own-only').checked;
+
+  if (!email) { toast('Please enter an email address'); return; }
+
+  const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  setSyncing();
+  try {
+    await setDoc(doc(db, 'invites', token), {
+      email, company, project, role, canAdd, canUpdate, ownOnly,
+      expiresAt, used: false,
+      createdBy: currentUser.uid,
+      createdAt: new Date().toISOString()
+    });
+
+    // Also register user in approved list
+    await addDoc(collection(db, 'approvedEmails'), {
+      email, company, project, role, canAdd, canUpdate, ownOnly,
+      invitedBy: currentUser.uid,
+      invitedAt: new Date().toISOString()
+    });
+
+    setSynced();
+    closeInviteModal();
+
+    const baseUrl = window.location.origin + window.location.pathname;
+    generatedInviteLink = `${baseUrl}?invite=${token}`;
+    document.getElementById('invite-link-display').textContent = generatedInviteLink;
+    document.getElementById('invite-link-overlay').classList.add('open');
+    renderUsers();
+    toast('Invite created');
+  } catch(e) { setSyncError(); toast('Error: ' + e.message); }
+}
+
+window.copyInviteLink = function() {
+  navigator.clipboard.writeText(generatedInviteLink).then(() => toast('Link copied!'));
+}
+
+window.emailInviteLink = function() {
+  const email = document.getElementById('inv-email').value || '';
+  const subject = encodeURIComponent('You have been invited to SnaggIt');
+  const body = encodeURIComponent('Hi,\n\nYou have been invited to join a project on SnaggIt.\n\nClick the link below to get started:\n\n' + generatedInviteLink + '\n\nThis link expires in 7 days.\n\nRegards');
+  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+}
+
+// ── USER LIST (admin view) ──
+async function renderUsers() {
+  const list = document.getElementById('users-list');
+  const empty = document.getElementById('users-empty');
+  list.innerHTML = '';
+
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    const users = [];
+    snap.forEach(d => users.push({ ...d.data(), uid: d.id }));
+
+    if (!users.length) { empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+
+    users.forEach(u => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;';
+      const roleColor = { admin: 'var(--accent)', pm: 'var(--inprogress)', contractor: 'var(--closed)', pending: 'var(--overdue)' }[u.role] || 'var(--muted)';
+      card.innerHTML = `
+        <div>
+          <div style="font-size:14px;font-weight:500;">${u.email}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:'IBM Plex Mono',monospace;">
+            ${u.company ? u.company + ' · ' : ''}
+            ${Array.isArray(u.projects) ? u.projects.map(p => projects[p]?.name || p).join(', ') : 'All projects'}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:10px;padding:3px 10px;border-radius:20px;background:rgba(0,0,0,0.3);color:${roleColor};border:1px solid ${roleColor};font-family:'IBM Plex Mono',monospace;text-transform:uppercase;">${u.role}</span>
+          ${u.role === 'pending' ? `<button class="cb cb-accent" style="padding:5px 12px;font-size:12px;" onclick="approveUser('${u.uid}')">Approve</button>` : ''}
+        </div>`;
+      list.appendChild(card);
+    });
+  } catch(e) { console.error('renderUsers', e); }
+}
+
+window.approveUser = async function(uid) {
+  try {
+    await updateDoc(doc(db, 'users', uid), { role: 'contractor' });
+    toast('User approved');
+    renderUsers();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+// ── PERMISSION GUARDS ──
+function canUserAdd() {
+  if (!currentUserProfile) return false;
+  if (currentUserProfile.role === 'admin' || currentUserProfile.role === 'pm') return true;
+  return currentUserProfile.canAdd === true;
+}
+
+function canUserUpdate() {
+  if (!currentUserProfile) return false;
+  if (currentUserProfile.role === 'admin' || currentUserProfile.role === 'pm') return true;
+  return currentUserProfile.canUpdate === true;
+}
+
+function filterDefectsForUser(defs) {
+  if (!currentUserProfile) return defs;
+  if (currentUserProfile.role === 'admin' || currentUserProfile.role === 'pm') return defs;
+  if (currentUserProfile.ownOnly && currentUserProfile.company) {
+    return defs.filter(d => (d.contractor || '').toLowerCase() === currentUserProfile.company.toLowerCase());
+  }
+  return defs;
+}
+
+// Patch showView to handle users tab
+const _origShowView = window.showView;
+window.showView = function(v) {
+  _origShowView(v);
+  if (v === 'users') renderUsers();
+  // Hide + New tab if user cannot add
+  const capTab = document.querySelectorAll('.nav-tab')[2];
+  if (capTab) capTab.style.display = canUserAdd() ? 'block' : 'none';
+}
+
+// Patch renderDashboard to filter defects for user
+const _origRenderDashboard = window.renderDashboard;
+window.renderDashboard = function() {
+  const origDefects = defects;
+  defects = filterDefectsForUser(origDefects);
+  _origRenderDashboard();
+  defects = origDefects;
+}
+
+const _origRenderRegister = window.renderRegister;
+window.renderRegister = function() {
+  const origDefects = defects;
+  defects = filterDefectsForUser(origDefects);
+  _origRenderRegister();
+  defects = origDefects;
+}
+
+// Patch capSave to check permission
+const _origCapSave = window.capSave;
+window.capSave = async function() {
+  if (!canUserAdd()) { toast('You do not have permission to add defects'); return; }
+  await _origCapSave();
+}
+
+// Patch saveModalEdits to check permission
+const _origSaveModal = window.saveModalEdits;
+window.saveModalEdits = async function() {
+  if (!canUserUpdate()) { toast('You do not have permission to update defects'); return; }
+  await _origSaveModal();
+}
+
+init();
+</script>
+</body>
+</html>
