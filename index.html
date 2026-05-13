@@ -278,6 +278,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
         <option value="">All statuses</option>
         <option>Open</option><option>In Progress</option><option>Closed</option><option>Overdue</option>
       </select>
+      <select class="fsel" id="rf-contractor" onchange="renderRegister()"><option value="">All contractors</option></select>
       <button class="btn-exp" onclick="exportCSV()">↓ CSV</button>
       <button class="btn-exp" onclick="exportPDF()">↓ PDF</button>
     </div>
@@ -878,11 +879,13 @@ window.renderRegister = function() {
   let data=[...defects];
   const q=document.getElementById('reg-search').value.toLowerCase();
   const fs=document.getElementById('rf-status').value;
+  // Populate contractor dropdown only if empty
   const cfSel=document.getElementById('rf-contractor');
-  const cfCur=cfSel.value;
+  if(!cfSel){console.warn('rf-contractor not found');}
+  const cfCur=cfSel?cfSel.value:'';
   const contractors=[...new Set(defects.map(d=>d.contractor).filter(Boolean))].sort();
-  cfSel.innerHTML='<option value="">All contractors</option>'+contractors.map(c=>`<option ${c===cfCur?'selected':''}>${c}</option>`).join('');
-  const fc=cfSel.value;
+  if(cfSel){cfSel.innerHTML='<option value="">All contractors</option>'+contractors.map(c=>`<option ${c===cfCur?'selected':''}>${c}</option>`).join('');if(cfCur)cfSel.value=cfCur;}
+  const fc=cfSel?cfSel.value:'';
   if(q) data=data.filter(d=>((d.description||'')+(d.room||'')+(d.contractor||'')+(d.level||'')).toLowerCase().includes(q));
   if(fs) data=data.filter(d=>d.status===fs);
   if(fc) data=data.filter(d=>d.contractor===fc);
