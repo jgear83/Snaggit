@@ -333,7 +333,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
         <audio id="cap-audio" controls style="display:none"></audio>
         <div style="margin-top:16px;">
           <div class="cap-lbl">3 — Transcript</div>
-          <textarea class="tx-box empty" id="cap-tx" placeholder="Record audio then transcribe, or type directly here..." oninput="captureState.transcript=this.value;updateCapSaveBar();" rows="4" style="width:100%;resize:vertical;font-family:inherit;border:none;outline:none;background:transparent;"></textarea>
+          <div class="tx-box empty" id="cap-tx">Record audio, then transcribe.</div>
           <div class="cbr"><button class="cb cb-accent" id="btn-tx" onclick="capTranscribe()">🎙 Transcribe voice</button></div>
         </div>
       </div>
@@ -1130,7 +1130,8 @@ function resetCapture() {
   document.getElementById('cap-audio').style.display='none';
   document.getElementById('cap-audio').src='';
   document.getElementById('btn-tx').disabled=true;
-  const txEl=document.getElementById('cap-tx');txEl.value='';txEl.placeholder='Record audio then transcribe, or type directly here...';txEl.className='tx-box empty';
+  document.getElementById('cap-tx').textContent='Record audio, then transcribe.';
+  document.getElementById('cap-tx').className='tx-box empty';
   document.getElementById('cap-savebar').style.display='none';
   document.getElementById('cap-level').value='';
   document.getElementById('cap-room').value='';
