@@ -221,6 +221,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
     <button class="nav-tab" onclick="showView('register')">Register</button>
     <button class="nav-tab" onclick="showView('capture')">＋ New</button>
     <button class="nav-tab" id="tab-users" onclick="showView('users')" style="display:none">Users</button>
+    <button class="nav-tab" id="tab-contractors" onclick="showView('contractors')" style="display:none">Contractors</button>
   </div>
   <div class="nav-right">
     <div class="sync-dot" id="sync-dot" title="Synced"></div>
@@ -349,7 +350,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
             <select class="fi" id="cap-status"><option>Open</option><option>In Progress</option><option>Closed</option><option>Overdue</option></select>
           </div>
           <div class="ff" style="grid-column:1/-1"><label>Description (leave blank to use transcript)</label>
-            <input class="fi" id="cap-desc" placeholder="Brief description…">
+            <input class="fi" id="cap-desc" placeholder="Brief description…" onblur="autoFillContractor(this.value)">
           </div>
         </div>
       </div>
@@ -361,6 +362,27 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
     </div>
   </div>
 
+
+  <!-- CONTRACTORS -->
+  <div class="view" id="view-contractors">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;">Project Contractors</div>
+      <button class="cb cb-accent" onclick="showAddContractorForm()">+ Add Contractor</button>
+    </div>
+    <div id="contractor-form" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:20px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:14px;">
+        <div class="ff"><label>Discipline</label><input class="fi" id="ctd-discipline" placeholder="e.g. Electrical"></div>
+        <div class="ff"><label>Contractor Name</label><input class="fi" id="ctd-name" placeholder="e.g. Maxim Electrical"></div>
+        <div class="ff"><label>Email Contact</label><input class="fi" id="ctd-email" type="email" placeholder="e.g. site@maxim.com"></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="cb cb-accent" onclick="saveContractor()">Save</button>
+        <button class="cb cb-dark" onclick="hideAddContractorForm()">Cancel</button>
+      </div>
+    </div>
+    <div id="contractors-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <div class="empty" id="contractors-empty" style="display:none"><div class="ei">👷</div><p>No contractors yet.<br>Add your first contractor above.</p></div>
+  </div>
 
   <!-- USERS -->
   <div class="view" id="view-users">
@@ -599,6 +621,9 @@ async function loadUserProfile(user) {
 function updateNavForRole() {
   const isAdmin = currentUserProfile && currentUserProfile.role === 'admin';
   document.getElementById('tab-users').style.display = isAdmin ? 'block' : 'none';
+  const isAdminOrPm = currentUserProfile && (currentUserProfile.role === 'admin' || currentUserProfile.role === 'pm');
+  const tabCon = document.getElementById('tab-contractors');
+  if(tabCon) tabCon.style.display = isAdminOrPm ? 'block' : 'none';
   // Add sign out button to nav-right if not already there
   if (!document.getElementById('signout-btn')) {
     const btn = document.createElement('button');
@@ -1071,6 +1096,7 @@ window.capTranscribe = async function() {
     if (finalTranscript.trim()) {
       captureState.transcript = finalTranscript.trim();
       box.textContent = captureState.transcript;
+      autoFillContractor(captureState.transcript);
     } else {
       box.textContent = '(no speech detected)';
       captureState.transcript = '(no speech detected)';
@@ -1194,10 +1220,16 @@ window.deleteDefect = async function() {
   } catch(e){toast('Delete failed');setSyncError();}
 }
 
-window.emailDefect = function() {
+window.emailDefect = async function() {
   const d=defects.find(x=>x._id===currentModalId);
   if(!d)return;
   const proj=projects[currentProject]?.name||'';
+  // Look up contractor email from directory
+  let toEmail = '';
+  try {
+    const snap = await getDocs(collection(db,'projects',currentProject,'contractors'));
+    snap.forEach(doc => { const c=doc.data(); if(c.name===d.contractor) toEmail=c.email||''; });
+  } catch(e){}
   const subject=encodeURIComponent(`Defect Notice #${String(d.seqId).padStart(3,'0')} — ${proj}`);
   const body=encodeURIComponent(
     `Dear ${d.contractor||'Contractor'},\n\nPlease action the following defect.\n\n`+
@@ -1205,7 +1237,7 @@ window.emailDefect = function() {
     (d.dueDate?`Due Date: ${new Date(d.dueDate).toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})}\n`:'')+
     `\nDescription:\n${d.description||d.transcript||'(see photo)'}\n\n(Photo attached separately)\n\nRegards`
   );
-  window.location.href=`mailto:?subject=${subject}&body=${body}`;
+  window.location.href=`mailto:${toEmail}?subject=${subject}&body=${body}`;
 }
 
 // ── EXPORT ──
@@ -1474,6 +1506,7 @@ const _origShowView = window.showView;
 window.showView = function(v) {
   _origShowView(v);
   if (v === 'users') renderUsers();
+  if (v === 'contractors') renderContractors();
   // Hide + New tab if user cannot add
   const capTab = document.querySelectorAll('.nav-tab')[2];
   if (capTab) capTab.style.display = canUserAdd() ? 'block' : 'none';
@@ -1511,6 +1544,183 @@ const _origSaveModal = window.saveModalEdits;
 window.saveModalEdits = async function() {
   if (!canUserUpdate()) { toast('You do not have permission to update defects'); return; }
   await _origSaveModal();
+}
+
+// ── CONTRACTOR DIRECTORY ──
+let contractorEditId = null;
+
+window.showAddContractorForm = function() {
+  contractorEditId = null;
+  document.getElementById('ctd-discipline').value = '';
+  document.getElementById('ctd-name').value = '';
+  document.getElementById('ctd-email').value = '';
+  document.getElementById('contractor-form').style.display = 'block';
+  document.getElementById('ctd-discipline').focus();
+}
+
+window.hideAddContractorForm = function() {
+  document.getElementById('contractor-form').style.display = 'none';
+  contractorEditId = null;
+}
+
+window.saveContractor = async function() {
+  const discipline = document.getElementById('ctd-discipline').value.trim();
+  const name = document.getElementById('ctd-name').value.trim();
+  const email = document.getElementById('ctd-email').value.trim();
+  if (!discipline || !name) { toast('Please enter discipline and contractor name'); return; }
+  if (!currentProject) { toast('No project selected'); return; }
+  setSyncing();
+  try {
+    const col = collection(db, 'projects', currentProject, 'contractors');
+    if (contractorEditId) {
+      await updateDoc(doc(db, 'projects', currentProject, 'contractors', contractorEditId), { discipline, name, email });
+      toast('Contractor updated');
+    } else {
+      await addDoc(col, { discipline, name, email, createdAt: new Date().toISOString() });
+      toast('Contractor added');
+    }
+    hideAddContractorForm();
+    setSynced();
+    renderContractors();
+  } catch(e) { toast('Error: ' + e.message); setSyncError(); }
+}
+
+window.editContractor = async function(id) {
+  const snap = await getDoc(doc(db, 'projects', currentProject, 'contractors', id));
+  if (!snap.exists()) return;
+  const d = snap.data();
+  contractorEditId = id;
+  document.getElementById('ctd-discipline').value = d.discipline || '';
+  document.getElementById('ctd-name').value = d.name || '';
+  document.getElementById('ctd-email').value = d.email || '';
+  document.getElementById('contractor-form').style.display = 'block';
+  document.getElementById('ctd-discipline').focus();
+}
+
+window.deleteContractor = async function(id) {
+  if (!confirm('Remove this contractor?')) return;
+  setSyncing();
+  try {
+    await deleteDoc(doc(db, 'projects', currentProject, 'contractors', id));
+    toast('Contractor removed');
+    setSynced();
+    renderContractors();
+  } catch(e) { toast('Error: ' + e.message); setSyncError(); }
+}
+
+async function renderContractors() {
+  const list = document.getElementById('contractors-list');
+  const empty = document.getElementById('contractors-empty');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!currentProject) return;
+  try {
+    const snap = await getDocs(collection(db, 'projects', currentProject, 'contractors'));
+    const contractors = [];
+    snap.forEach(d => contractors.push({ ...d.data(), _id: d.id }));
+    contractors.sort((a, b) => (a.discipline||'').localeCompare(b.discipline||''));
+    if (!contractors.length) { empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    contractors.forEach(c => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;';
+      card.innerHTML = `
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--accent);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${c.discipline}</div>
+          <div style="font-size:14px;font-weight:500;color:var(--text);">${c.name}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${c.email||'No email'}</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="sel-all-btn" onclick="editContractor('${c._id}')">Edit</button>
+          <button class="btn-del" onclick="deleteContractor('${c._id}')" style="padding:6px 12px;font-size:12px;">Remove</button>
+        </div>`;
+      list.appendChild(card);
+    });
+  } catch(e) { console.error('renderContractors', e); }
+}
+
+// ── AUTO-FILL CONTRACTOR FROM TRANSCRIPT/DESCRIPTION ──
+async function autoFillContractor(text) {
+  if (!text || !currentProject) return;
+  const lower = text.toLowerCase();
+
+  // ── LEVEL DETECTION ──
+  const levelField = document.getElementById('cap-level');
+  if (levelField && !levelField.value) {
+    // Match patterns like "level 3", "level three", "l3", "basement level 2",
+    // "ground floor", "ground level", "podium level 1", "roof level"
+    const wordNums = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,
+                      nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,
+                      fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20};
+    let detectedLevel = null;
+
+    // Check for basement
+    const basementMatch = lower.match(/basement(?:\s+level)?\s*(\d+|[a-z]+)?/);
+    if (basementMatch) {
+      const num = basementMatch[1];
+      if (num && wordNums[num]) detectedLevel = 'Basement Level ' + wordNums[num];
+      else if (num && !isNaN(num)) detectedLevel = 'Basement Level ' + num;
+      else detectedLevel = 'Basement Level 1';
+    }
+
+    // Check for ground
+    if (!detectedLevel && (lower.includes('ground floor') || lower.includes('ground level') || lower.match(/\bground\b/))) {
+      detectedLevel = 'Ground';
+    }
+
+    // Check for podium
+    if (!detectedLevel) {
+      const podiumMatch = lower.match(/podium(?:\s+level)?\s*(\d+|[a-z]+)?/);
+      if (podiumMatch) {
+        const num = podiumMatch[1];
+        if (num && wordNums[num]) detectedLevel = 'Podium Level ' + wordNums[num];
+        else if (num && !isNaN(num)) detectedLevel = 'Podium Level ' + num;
+        else detectedLevel = 'Podium Level 1';
+      }
+    }
+
+    // Check for roof
+    if (!detectedLevel && (lower.includes('roof') || lower.includes('rooftop'))) {
+      detectedLevel = 'Roof';
+    }
+
+    // Check for "level N" or "floor N" or "L N"
+    if (!detectedLevel) {
+      const lvlMatch = lower.match(/(?:level|floor|lvl|l)\s*(\d{1,3}|[a-z]+)/);
+      if (lvlMatch) {
+        const num = lvlMatch[1];
+        if (wordNums[num]) detectedLevel = 'L' + wordNums[num];
+        else if (!isNaN(num)) detectedLevel = 'L' + num;
+      }
+    }
+
+    if (detectedLevel) {
+      levelField.value = detectedLevel;
+      toast('Level auto-filled: ' + detectedLevel);
+    }
+  }
+
+  // ── CONTRACTOR DETECTION ──
+  try {
+    const snap = await getDocs(collection(db, 'projects', currentProject, 'contractors'));
+    const contractors = [];
+    snap.forEach(d => contractors.push({ ...d.data(), _id: d.id }));
+    for (const c of contractors) {
+      const disciplineWords = (c.discipline||'').toLowerCase().split(' ');
+      const nameWords = (c.name||'').toLowerCase().split(' ');
+      const allKeywords = [...new Set([...disciplineWords, ...nameWords])].filter(w => w.length > 2);
+      const matched = allKeywords.some(kw => lower.includes(kw));
+      if (matched) {
+        const conField = document.getElementById('cap-con');
+        if (conField && !conField.value) {
+          conField.value = c.name;
+          window._autoFilledEmail = c.email || '';
+          toast('Contractor auto-filled: ' + c.name);
+        }
+        break;
+      }
+    }
+  } catch(e) { console.error('autoFillContractor', e); }
 }
 
 init();
