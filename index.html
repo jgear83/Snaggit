@@ -1647,51 +1647,68 @@ async function autoFillContractor(text) {
   // ── LEVEL DETECTION ──
   const levelField = document.getElementById('cap-level');
   if (levelField && !levelField.value) {
-    // Match patterns like "level 3", "level three", "l3", "basement level 2",
-    // "ground floor", "ground level", "podium level 1", "roof level"
     const wordNums = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,
-                      nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,
-                      fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20};
+      nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,
+      sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20};
     let detectedLevel = null;
 
-    // Check for basement
-    const basementMatch = lower.match(/basement(?:\s+level)?\s*(\d+|[a-z]+)?/);
-    if (basementMatch) {
-      const num = basementMatch[1];
-      if (num && wordNums[num]) detectedLevel = 'Basement Level ' + wordNums[num];
-      else if (num && !isNaN(num)) detectedLevel = 'Basement Level ' + num;
-      else detectedLevel = 'Basement Level 1';
+    function parseNum(s) {
+      if (!s) return null;
+      const trimmed = s.trim();
+      if (!isNaN(trimmed) && trimmed !== '') return parseInt(trimmed);
+      if (wordNums[trimmed]) return wordNums[trimmed];
+      return null;
     }
 
-    // Check for ground
-    if (!detectedLevel && (lower.includes('ground floor') || lower.includes('ground level') || lower.match(/\bground\b/))) {
+    const words = lower.split(' ');
+
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      if (w === 'level' || w === 'floor' || w === 'lvl') {
+        const prev = i > 0 ? words[i-1] : '';
+        const next = i+1 < words.length ? words[i+1] : '';
+        const n = parseNum(next);
+        if (n !== null) {
+          if (prev === 'basement') detectedLevel = 'Basement Level ' + n;
+          else if (prev === 'podium') detectedLevel = 'Podium Level ' + n;
+          else detectedLevel = 'L' + n;
+          break;
+        }
+      }
+    }
+
+    if (!detectedLevel && lower.includes('basement')) {
+      const bi = words.indexOf('basement');
+      const nextW = bi+1 < words.length ? words[bi+1] : '';
+      if (nextW === 'level' && bi+2 < words.length) {
+        const n = parseNum(words[bi+2]);
+        if (n !== null) detectedLevel = 'Basement Level ' + n;
+        else detectedLevel = 'Basement Level 1';
+      } else {
+        const n = parseNum(nextW);
+        if (n !== null) detectedLevel = 'Basement Level ' + n;
+        else detectedLevel = 'Basement Level 1';
+      }
+    }
+
+    if (!detectedLevel && (lower.includes('ground floor') || lower.includes('ground level') || lower.includes('ground'))) {
       detectedLevel = 'Ground';
     }
 
-    // Check for podium
-    if (!detectedLevel) {
-      const podiumMatch = lower.match(/podium(?:\s+level)?\s*(\d+|[a-z]+)?/);
-      if (podiumMatch) {
-        const num = podiumMatch[1];
-        if (num && wordNums[num]) detectedLevel = 'Podium Level ' + wordNums[num];
-        else if (num && !isNaN(num)) detectedLevel = 'Podium Level ' + num;
-        else detectedLevel = 'Podium Level 1';
+    if (!detectedLevel && lower.includes('podium')) {
+      const pi = words.indexOf('podium');
+      const nextW = pi+1 < words.length ? words[pi+1] : '';
+      if (nextW === 'level' && pi+2 < words.length) {
+        const n = parseNum(words[pi+2]);
+        detectedLevel = n !== null ? 'Podium Level ' + n : 'Podium Level 1';
+      } else {
+        const n = parseNum(nextW);
+        detectedLevel = n !== null ? 'Podium Level ' + n : 'Podium Level 1';
       }
     }
 
-    // Check for roof
     if (!detectedLevel && (lower.includes('roof') || lower.includes('rooftop'))) {
       detectedLevel = 'Roof';
-    }
-
-    // Check for "level N" or "floor N" or "L N"
-    if (!detectedLevel) {
-      const lvlMatch = lower.match(/(?:level|floor|lvl|l)\s*(\d{1,3}|[a-z]+)/);
-      if (lvlMatch) {
-        const num = lvlMatch[1];
-        if (wordNums[num]) detectedLevel = 'L' + wordNums[num];
-        else if (!isNaN(num)) detectedLevel = 'L' + num;
-      }
     }
 
     if (detectedLevel) {
@@ -1706,8 +1723,8 @@ async function autoFillContractor(text) {
     const contractors = [];
     snap.forEach(d => contractors.push({ ...d.data(), _id: d.id }));
     for (const c of contractors) {
-      const disciplineWords = (c.discipline||'').toLowerCase().split(' ');
-      const nameWords = (c.name||'').toLowerCase().split(' ');
+      const disciplineWords = (c.discipline||'').toLowerCase().split(/\s+/);
+      const nameWords = (c.name||'').toLowerCase().split(/\s+/);
       const allKeywords = [...new Set([...disciplineWords, ...nameWords])].filter(w => w.length > 2);
       const matched = allKeywords.some(kw => lower.includes(kw));
       if (matched) {
