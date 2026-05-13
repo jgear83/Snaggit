@@ -877,106 +877,76 @@ window.capTranscribe = function() {
   const btn = document.getElementById('btn-tx');
   const box = document.getElementById('cap-tx');
 
-  // Check support
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    box.value = 'Speech recognition not available. You can type your notes directly in this box.';
+    box.value = 'Speech recognition not available — type your notes directly.';
     box.className = 'tx-box';
     box.focus();
     return;
   }
 
-  // If already listening, do nothing (button becomes stop via onclick swap)
-  let recognition;
-  try {
-    recognition = new SR();
-  } catch(e) {
-    box.value = 'Could not start speech recognition: ' + e.message + '. Type your notes directly.';
-    box.className = 'tx-box';
-    return;
-  }
+  // If already running, ignore
+  if (btn.dataset.listening === 'true') return;
 
-  recognition.continuous = true;
-  recognition.interimResults = true;
+  const recognition = new SR();
+  recognition.continuous = false;       // single-shot works best on iOS Safari
+  recognition.interimResults = false;   // only final results
   recognition.lang = 'en-AU';
+  recognition.maxAlternatives = 1;
 
-  let finalTranscript = '';
-  let silenceTimer = null;
-
-  btn.disabled = false;
-  btn.textContent = '⏹ Tap to stop';
+  btn.dataset.listening = 'true';
+  btn.textContent = '🔴 Listening…';
   btn.style.background = 'var(--overdue)';
+  btn.disabled = true;
   box.className = 'tx-box';
-  box.value = '';
-  box.placeholder = 'Listening — speak now…';
-
-  // Tap button to stop early
-  const origOnclick = btn.getAttribute('onclick');
-  btn.onclick = () => { clearTimeout(silenceTimer); recognition.stop(); };
+  box.placeholder = 'Speak now…';
 
   recognition.onresult = (event) => {
-    let interim = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      if (event.results[i].isFinal) {
-        finalTranscript += event.results[i][0].transcript + ' ';
-      } else {
-        interim += event.results[i][0].transcript;
-      }
+    const transcript = Array.from(event.results)
+      .map(r => r[0].transcript)
+      .join(' ')
+      .trim();
+    if (transcript) {
+      // Append to existing text rather than replace
+      const existing = box.value.trim();
+      box.value = existing ? existing + ' ' + transcript : transcript;
+      captureState.transcript = box.value;
     }
-    box.value = (finalTranscript + interim).trim();
-    captureState.transcript = finalTranscript.trim();
-    clearTimeout(silenceTimer);
-    silenceTimer = setTimeout(() => recognition.stop(), 2500);
+    updateCapSaveBar();
   };
 
   recognition.onerror = (event) => {
-    clearTimeout(silenceTimer);
     const errMap = {
-      'not-allowed': 'Microphone permission denied — check Settings > Safari > Microphone.',
-      'no-speech': 'No speech detected. Try speaking closer to the microphone.',
-      'network': 'Network error — check your internet connection.',
-      'audio-capture': 'Microphone not available.',
-      'service-not-allowed': 'Speech service not allowed. Make sure you are on HTTPS.',
+      'not-allowed':        'Microphone blocked — go to Settings → Safari → Microphone → Allow.',
+      'no-speech':          '(no speech detected)',
+      'network':            'Network error — check internet connection.',
+      'audio-capture':      'Microphone not available.',
+      'service-not-allowed':'Speech service blocked — make sure app is open via HTTPS.',
     };
     const msg = errMap[event.error] || ('Error: ' + event.error);
     if (event.error !== 'no-speech') {
-      box.value = msg + '
-
-You can type your notes directly in this box.';
+      box.value = box.value || msg;
     }
-    _resetTranscribeBtn(btn);
-    updateCapSaveBar();
+    _resetTranscribeBtn(btn, box);
   };
 
   recognition.onend = () => {
-    clearTimeout(silenceTimer);
-    const final = finalTranscript.trim();
-    if (final) {
-      captureState.transcript = final;
-      box.value = final;
-    } else if (!box.value || box.value === '') {
-      box.value = '';
-      box.placeholder = 'No speech detected. Type your notes here.';
-    }
-    box.className = 'tx-box';
-    _resetTranscribeBtn(btn);
-    updateCapSaveBar();
+    _resetTranscribeBtn(btn, box);
   };
 
   try {
     recognition.start();
-    setTimeout(() => { try { recognition.stop(); } catch(e){} }, 60000);
   } catch(e) {
-    box.value = 'Could not start: ' + e.message + '. Type your notes directly.';
-    _resetTranscribeBtn(btn);
+    box.value = 'Could not start microphone: ' + e.message;
+    _resetTranscribeBtn(btn, box);
   }
 }
-
-function _resetTranscribeBtn(btn) {
+function _resetTranscribeBtn(btn, box) {
+  btn.dataset.listening = 'false';
   btn.disabled = false;
-  btn.textContent = '🎙 Transcribe voice';
+  btn.textContent = '🎙 Tap to speak';
   btn.style.background = '';
-  btn.onclick = () => window.capTranscribe();
+  if (box) box.placeholder = 'Tap above to speak, or type here…';
 }
 
 window.capSave = async function() {
