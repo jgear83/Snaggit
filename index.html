@@ -145,7 +145,7 @@ td img.thumb{width:40px;height:40px;object-fit:cover;border-radius:5px;cursor:po
 .cb-green{background:#27ae60;color:#fff;}
 .rec-row{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--overdue);}
 audio{width:100%;margin-top:10px;border-radius:6px;}
-.tx-box{background:var(--surface2);border-radius:8px;padding:12px;font-size:13px;line-height:1.7;color:var(--text);min-height:72px;margin-top:8px;box-sizing:border-box;}
+.tx-box{background:var(--surface2);border-radius:8px;padding:12px;font-size:13px;line-height:1.7;color:var(--text);min-height:72px;margin-top:8px;}
 .tx-box.empty{color:var(--muted);font-style:italic;}
 .loading-row{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;}
 .ff{margin-bottom:12px;}
@@ -307,7 +307,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
         <audio id="cap-audio" controls style="display:none"></audio>
         <div style="margin-top:16px;">
           <div class="cap-lbl">3 — Transcript</div>
-          <textarea class="tx-box empty" id="cap-tx" placeholder="Record audio then transcribe — or type directly here…" oninput="captureState.transcript=this.value;updateCapSaveBar();" rows="4" style="width:100%;resize:vertical;font-family:inherit;border:none;outline:none;background:transparent;"></textarea>
+          <div class="tx-box empty" id="cap-tx">Record audio, then transcribe.</div>
           <div class="cbr"><button class="cb cb-accent" id="btn-tx" onclick="capTranscribe()">🎙 Transcribe voice</button></div>
         </div>
       </div>
@@ -358,7 +358,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
     <div class="modal-body">
       <img id="m-photo" class="modal-photo" style="display:none" alt="">
       <audio id="m-audio" controls style="display:none;width:100%;margin-bottom:14px;"></audio>
-      <div class="mf"><label>Description / Transcript</label><textarea id="m-desc" rows="4" style="width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:9px 11px;border-radius:6px;font-size:13px;font-family:IBM Plex Sans,sans-serif;line-height:1.6;resize:vertical;"></textarea></div>
+      <div class="mf"><label>Description</label><p id="m-desc"></p></div>
       <div class="modal-2col">
         <div class="mf"><label>Level</label><input id="m-level"></div>
         <div class="mf"><label>Room / Area</label><input id="m-room"></div>
@@ -981,7 +981,7 @@ window.capTranscribe = async function() {
 
   btn.disabled=true;
   box.className='tx-box';
-  box.value='';box.disabled=true;box.placeholder='Listening — speak now…';
+  box.innerHTML='<div class="loading-row"><div class="spin"></div> Listening — speak now…</div>';
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = new SpeechRecognition();
@@ -1014,12 +1014,12 @@ window.capTranscribe = async function() {
     clearTimeout(silenceTimer);
     if (finalTranscript.trim()) {
       captureState.transcript = finalTranscript.trim();
-      box.value = captureState.transcript;
+      box.textContent = captureState.transcript;
     } else {
-      box.value = '(no speech detected)';
+      box.textContent = '(no speech detected)';
       captureState.transcript = '(no speech detected)';
     }
-    box.className='tx-box';box.disabled=false;box.placeholder='Type or edit your transcript here…';
+    box.className='tx-box';
     btn.disabled=false;
   };
 
@@ -1072,7 +1072,8 @@ function resetCapture() {
   document.getElementById('cap-audio').style.display='none';
   document.getElementById('cap-audio').src='';
   document.getElementById('btn-tx').disabled=true;
-  const txEl=document.getElementById('cap-tx');txEl.value='';txEl.disabled=false;txEl.placeholder='Record audio then transcribe — or type directly here…';txEl.className='tx-box empty';
+  document.getElementById('cap-tx').textContent='Record audio, then transcribe.';
+  document.getElementById('cap-tx').className='tx-box empty';
   document.getElementById('cap-savebar').style.display='none';
   document.getElementById('cap-level').value='';
   document.getElementById('cap-room').value='';
@@ -1094,7 +1095,7 @@ window.openModal = function(id) {
   if(d.photo){mp.src=d.photo;mp.style.display='block';}else mp.style.display='none';
   const ma=document.getElementById('m-audio');
   if(d.audio){ma.src=d.audio;ma.style.display='block';}else ma.style.display='none';
-  document.getElementById('m-desc').value=d.description||'';
+  document.getElementById('m-desc').textContent=d.description||'(no description)';
   document.getElementById('m-level').value=d.level||'';
   document.getElementById('m-room').value=d.room||'';
   document.getElementById('m-con').value=d.contractor||'';
@@ -1114,7 +1115,6 @@ window.saveModalEdits = async function() {
   setSyncing();
   try {
     await updateDoc(doc(db,'projects',currentProject,'defects',currentModalId),{
-      description:document.getElementById('m-desc').value,
       level:document.getElementById('m-level').value,
       room:document.getElementById('m-room').value,
       contractor:document.getElementById('m-con').value,
