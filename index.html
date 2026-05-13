@@ -211,7 +211,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
 <div id="loading-screen">
   <div class="logo">SNAGGIT</div>
   <div class="spin"></div>
-  <div class="sub">Connecting to database…</div>
+  <div class="sub">Connecting to database...</div>
 </div>
 
 <nav class="nav" id="main-nav" style="display:none">
@@ -272,7 +272,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
   <!-- REGISTER -->
   <div class="view" id="view-register">
     <div class="reg-toolbar">
-      <input class="reg-search" id="reg-search" placeholder="Search description, room, contractor…" oninput="renderRegister()">
+      <input class="reg-search" id="reg-search" placeholder="Search description, room, contractor..." oninput="renderRegister()">
       <select class="fsel" id="rf-status" onchange="renderRegister()">
         <option value="">All statuses</option>
         <option>Open</option><option>In Progress</option><option>Closed</option><option>Overdue</option>
@@ -328,7 +328,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
           <button class="cb cb-red" id="btn-rec" onclick="capStartRec()">🎙 Record</button>
           <button class="cb cb-dark" id="btn-stoprec" style="display:none" onclick="capStopRec()">⏹ Stop</button>
         </div>
-        <div class="rec-row" id="rec-ind" style="display:none"><div class="pulse" style="background:var(--overdue);width:8px;height:8px;border-radius:50%;animation:pulse 1s infinite;"></div> Recording…</div>
+        <div class="rec-row" id="rec-ind" style="display:none"><div class="pulse" style="background:var(--overdue);width:8px;height:8px;border-radius:50%;animation:pulse 1s infinite;"></div> Recording...</div>
         <audio id="cap-audio" controls style="display:none"></audio>
         <div style="margin-top:16px;">
           <div class="cap-lbl">3 — Transcript</div>
@@ -348,7 +348,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
             <select class="fi" id="cap-status"><option>Open</option><option>In Progress</option><option>Closed</option><option>Overdue</option></select>
           </div>
           <div class="ff" style="grid-column:1/-1"><label>Description (leave blank to use transcript)</label>
-            <input class="fi" id="cap-desc" placeholder="Brief description…">
+            <input class="fi" id="cap-desc" placeholder="Brief description...">
           </div>
         </div>
       </div>
@@ -895,11 +895,11 @@ window.capTranscribe = function() {
   recognition.maxAlternatives = 1;
 
   btn.dataset.listening = 'true';
-  btn.textContent = '🔴 Listening…';
+  btn.textContent = '🔴 Listening...';
   btn.style.background = 'var(--overdue)';
   btn.disabled = true;
   box.className = 'tx-box';
-  box.placeholder = 'Speak now…';
+  box.placeholder = 'Speak now...';
 
   recognition.onresult = (event) => {
     const transcript = Array.from(event.results)
@@ -917,7 +917,7 @@ window.capTranscribe = function() {
 
   recognition.onerror = (event) => {
     const errMap = {
-      'not-allowed':        'Microphone blocked — go to Settings → Safari → Microphone → Allow.',
+      'not-allowed':        'Microphone blocked — go to Settings -> Safari -> Microphone -> Allow.',
       'no-speech':          '(no speech detected)',
       'network':            'Network error — check internet connection.',
       'audio-capture':      'Microphone not available.',
@@ -946,13 +946,13 @@ function _resetTranscribeBtn(btn, box) {
   btn.disabled = false;
   btn.textContent = '🎙 Tap to speak';
   btn.style.background = '';
-  if (box) box.placeholder = 'Tap above to speak, or type here…';
+  if (box) box.placeholder = 'Tap above to speak, or type here...';
 }
 
 window.capSave = async function() {
   if(!currentProject){alert('Select or create a project first.');return;}
   const btn=document.getElementById('btn-save-cap');
-  btn.disabled=true;btn.textContent='Saving…';
+  btn.disabled=true;btn.textContent='Saving...';
   setSyncing();
   const nextSeq = defects.length ? Math.max(...defects.map(d=>d.seqId||0))+1 : 1;
   const desc=document.getElementById('cap-desc').value.trim()||captureState.transcript;
