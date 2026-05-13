@@ -112,14 +112,6 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .btn-exp{background:none;border:1px solid var(--border2);color:var(--muted);padding:8px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:all 0.15s;}
 .btn-exp:hover{border-color:var(--accent);color:var(--accent);}
 .reg-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-.chk-cell{width:36px;text-align:center;padding:8px 4px;}
-input[type=checkbox].row-chk{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
-.batch-bar{display:none;align-items:center;gap:10px;background:var(--accent-dim);border:1px solid rgba(232,184,75,0.3);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;flex-wrap:wrap;}
-.batch-bar.visible{display:flex;}
-.batch-count{font-size:13px;color:var(--text);font-weight:500;}
-.batch-count span{color:var(--accent);font-family:'IBM Plex Mono',monospace;}
-.sel-all-btn{background:none;border:1px solid var(--border2);color:var(--muted);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;}
-.sel-all-btn:hover{border-color:var(--accent);color:var(--accent);}
 table{width:100%;border-collapse:collapse;font-size:12px;}
 th{text-align:left;padding:8px 10px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:'IBM Plex Mono',monospace;border-bottom:1px solid var(--border2);white-space:nowrap;cursor:pointer;}
 th:hover{color:var(--text);}
@@ -153,7 +145,7 @@ td img.thumb{width:40px;height:40px;object-fit:cover;border-radius:5px;cursor:po
 .cb-green{background:#27ae60;color:#fff;}
 .rec-row{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--overdue);}
 audio{width:100%;margin-top:10px;border-radius:6px;}
-.tx-box{background:var(--surface2);border-radius:8px;padding:12px;font-size:13px;line-height:1.7;color:var(--text);min-height:72px;margin-top:8px;box-sizing:border-box;}
+.tx-box{background:var(--surface2);border-radius:8px;padding:12px;font-size:13px;line-height:1.7;color:var(--text);min-height:72px;margin-top:8px;}
 .tx-box.empty{color:var(--muted);font-style:italic;}
 .loading-row{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;}
 .ff{margin-bottom:12px;}
@@ -246,16 +238,6 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
       <div class="stat-card s-closed"><div class="stat-label">Closed</div><div class="stat-num" id="s-closed">—</div></div>
       <div class="stat-card s-overdue"><div class="stat-label">Overdue</div><div class="stat-num" id="s-overdue">—</div></div>
     </div>
-    <div id="chart-wrap" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:20px;align-items:center;gap:24px;flex-wrap:wrap;">
-      <div style="position:relative;width:180px;height:180px;flex-shrink:0;margin:0 auto;">
-        <canvas id="status-chart" width="180" height="180"></canvas>
-        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
-          <div id="chart-total" style="font-family:'Syne',sans-serif;font-size:28px;font-weight:700;color:var(--text);line-height:1;">--</div>
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:'IBM Plex Mono',monospace;">Total</div>
-        </div>
-      </div>
-      <div id="chart-legend" style="display:flex;flex-direction:column;gap:10px;flex:1;min-width:140px;"></div>
-    </div>
     <div class="filter-row">
       <select class="fsel" id="df-level" onchange="renderDashboard()"><option value="">All levels</option></select>
       <select class="fsel" id="df-room" onchange="renderDashboard()"><option value="">All rooms</option></select>
@@ -278,20 +260,12 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
         <option value="">All statuses</option>
         <option>Open</option><option>In Progress</option><option>Closed</option><option>Overdue</option>
       </select>
-      <select class="fsel" id="rf-contractor" onchange="renderRegister()"><option value="">All contractors</option></select>
       <button class="btn-exp" onclick="exportCSV()">↓ CSV</button>
       <button class="btn-exp" onclick="exportPDF()">↓ PDF</button>
-    </div>
-    <div class="batch-bar" id="batch-bar">
-      <div class="batch-count">Selected: <span id="batch-count">0</span></div>
-      <button class="sel-all-btn" onclick="selectAllVisible()">Select all visible</button>
-      <button class="sel-all-btn" onclick="clearSelection()">Clear</button>
-      <button class="cb cb-accent" style="padding:7px 16px;font-size:13px;" onclick="batchIssuePDF()">📄 Issue Selected</button>
     </div>
     <div class="reg-wrap">
       <table>
         <thead><tr>
-          <th class="chk-cell"><input type="checkbox" class="row-chk" id="chk-all" onclick="toggleAllCheckboxes(this)"></th>
           <th onclick="sortBy('seqId')">ID</th>
           <th>Photo</th>
           <th onclick="sortBy('level')">Level</th>
@@ -384,7 +358,7 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
     <div class="modal-body">
       <img id="m-photo" class="modal-photo" style="display:none" alt="">
       <audio id="m-audio" controls style="display:none;width:100%;margin-bottom:14px;"></audio>
-      <div class="mf"><label>Description / Transcript</label><textarea id="m-desc" rows="4" style="width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:9px 11px;border-radius:6px;font-size:13px;font-family:IBM Plex Sans,sans-serif;line-height:1.6;resize:vertical;"></textarea></div>
+      <div class="mf"><label>Description</label><p id="m-desc"></p></div>
       <div class="modal-2col">
         <div class="mf"><label>Level</label><input id="m-level"></div>
         <div class="mf"><label>Room / Area</label><input id="m-room"></div>
@@ -500,7 +474,6 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
 <div class="toast" id="toast"></div>
 
 <!-- Firebase -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, getDocs, getDoc, setDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -526,7 +499,6 @@ let currentProject = null;
 let defects = [];
 let unsubscribe = null;
 let captureState = { photo: null, audioBlob: null, audioDataUrl: null, transcript: '' };
-let activeRecognition = null;
 let cameraStream = null, mediaRecorder = null, audioChunks = [];
 let currentModalId = null;
 let sortCol = 'seqId', sortDir = 1;
@@ -796,29 +768,10 @@ window.renderDashboard = function() {
   document.getElementById('dash-proj-name').textContent = pname;
   document.getElementById('cap-proj-label').textContent = pname;
 
-  const nOpen=defects.filter(d=>d.status==='Open').length;
-  const nIP=defects.filter(d=>d.status==='In Progress').length;
-  const nClosed=defects.filter(d=>d.status==='Closed').length;
-  const nOverdue=defects.filter(d=>d.status==='Overdue').length;
-  const nTotal=nOpen+nIP+nClosed+nOverdue;
-  document.getElementById('s-open').textContent=nOpen;
-  document.getElementById('s-ip').textContent=nIP;
-  document.getElementById('s-closed').textContent=nClosed;
-  document.getElementById('s-overdue').textContent=nOverdue;
-  const chartWrap=document.getElementById('chart-wrap');
-  if(nTotal>0){
-    chartWrap.style.display='flex';
-    document.getElementById('chart-total').textContent=nTotal;
-    const canvas=document.getElementById('status-chart');
-    const ctx=canvas.getContext('2d');
-    const data=[nOpen,nIP,nClosed,nOverdue];
-    const labels=['Open','In Progress','Closed','Overdue'];
-    const colors=['#e8b84b','#4b9fe8','#4be87a','#e8504b'];
-    if(window._statusChart) window._statusChart.destroy();
-    window._statusChart=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderColor:'var(--surface)',borderWidth:3,hoverOffset:6}]},options:{cutout:'72%',plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>{const p=nTotal?Math.round(c.parsed/nTotal*100):0;return ' '+c.parsed+' ('+p+'%)';}}}},animation:{duration:400}}});
-    const legend=document.getElementById('chart-legend');
-    legend.innerHTML=labels.map((lbl,i)=>{const p=nTotal?Math.round(data[i]/nTotal*100):0;return '<div style="display:flex;align-items:center;gap:10px;"><div style="width:12px;height:12px;border-radius:3px;background:'+colors[i]+';flex-shrink:0;"></div><div><span style="font-size:13px;color:var(--text);">'+lbl+'</span><span style="font-size:11px;color:var(--muted);margin-left:6px;">'+data[i]+' - '+p+'%</span></div></div>';}).join('');
-  } else { chartWrap.style.display='none'; }
+  document.getElementById('s-open').textContent = defects.filter(d=>d.status==='Open').length;
+  document.getElementById('s-ip').textContent = defects.filter(d=>d.status==='In Progress').length;
+  document.getElementById('s-closed').textContent = defects.filter(d=>d.status==='Closed').length;
+  document.getElementById('s-overdue').textContent = defects.filter(d=>d.status==='Overdue').length;
 
   fillSel('df-level', [...new Set(defects.map(d=>d.level).filter(Boolean))]);
   fillSel('df-room', [...new Set(defects.map(d=>d.room).filter(Boolean))]);
@@ -876,27 +829,17 @@ function fillSel(id, vals) {
 }
 
 // ── REGISTER ──
-let selectedIds = new Set();
-function updateBatchBar(){const bar=document.getElementById('batch-bar');document.getElementById('batch-count').textContent=selectedIds.size;bar.classList.toggle('visible',selectedIds.size>0);}
-window.toggleAllCheckboxes=function(m){document.querySelectorAll('.row-chk:not(#chk-all)').forEach(c=>{c.checked=m.checked;if(m.checked)selectedIds.add(c.dataset.id);else selectedIds.delete(c.dataset.id);});updateBatchBar();}
-window.selectAllVisible=function(){document.querySelectorAll('.row-chk:not(#chk-all)').forEach(c=>{c.checked=true;selectedIds.add(c.dataset.id);});const m=document.getElementById('chk-all');if(m)m.checked=true;updateBatchBar();}
-window.clearSelection=function(){selectedIds.clear();document.querySelectorAll('.row-chk').forEach(c=>c.checked=false);updateBatchBar();}
-window.toggleRowCheck=function(chk){if(chk.checked)selectedIds.add(chk.dataset.id);else selectedIds.delete(chk.dataset.id);const all=document.querySelectorAll('.row-chk:not(#chk-all)');const m=document.getElementById('chk-all');if(m)m.checked=all.length>0&&[...all].every(c=>c.checked);updateBatchBar();}
 window.renderRegister = function() {
   let data=[...defects];
   const q=document.getElementById('reg-search').value.toLowerCase();
   const fs=document.getElementById('rf-status').value;
-  // Populate contractor dropdown only if empty
-  const cfSel=document.getElementById('rf-contractor');
-  if(!cfSel){console.warn('rf-contractor not found');}
-  const cfCur=cfSel?cfSel.value:'';
-  const contractors=[...new Set(defects.map(d=>d.contractor).filter(Boolean))].sort();
-  if(cfSel){cfSel.innerHTML='<option value="">All contractors</option>'+contractors.map(c=>`<option ${c===cfCur?'selected':''}>${c}</option>`).join('');if(cfCur)cfSel.value=cfCur;}
-  const fc=cfSel?cfSel.value:'';
   if(q) data=data.filter(d=>((d.description||'')+(d.room||'')+(d.contractor||'')+(d.level||'')).toLowerCase().includes(q));
   if(fs) data=data.filter(d=>d.status===fs);
-  if(fc) data=data.filter(d=>d.contractor===fc);
-  data.sort((a,b)=>{let va=a[sortCol]||'',vb=b[sortCol]||'';if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}return va<vb?-sortDir:va>vb?sortDir:0;});
+  data.sort((a,b)=>{
+    let va=a[sortCol]||'',vb=b[sortCol]||'';
+    if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}
+    return va<vb?-sortDir:va>vb?sortDir:0;
+  });
   const tbody=document.getElementById('reg-tbody');
   const empty=document.getElementById('reg-empty');
   tbody.innerHTML='';
@@ -908,12 +851,10 @@ window.renderRegister = function() {
     const dl=due?Math.ceil((due-today)/86400000):null;
     const ds=due?due.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}):'—';
     const dc=dl!==null&&dl<0?'color:var(--overdue)':dl!==null&&dl<=3?'color:var(--open)':'';
-    const isSel=selectedIds.has(d._id);
     const tr=document.createElement('tr');
     tr.style.cursor='pointer';
     tr.onclick=()=>openModal(d._id);
     tr.innerHTML=`
-      <td class="chk-cell" onclick="event.stopPropagation()"><input type="checkbox" class="row-chk" data-id="${d._id}" ${isSel?'checked':''} onchange="window.toggleRowCheck(this)"></td>
       <td class="mono">#${String(d.seqId).padStart(3,'0')}</td>
       <td>${d.photo?`<img class="thumb" src="${d.photo}" onclick="event.stopPropagation();openModal('${d._id}')">`:`<div class="td-nophoto">📷</div>`}</td>
       <td>${d.level||'—'}</td>
@@ -1042,10 +983,8 @@ window.capTranscribe = async function() {
   box.className='tx-box';
   box.innerHTML='<div class="loading-row"><div class="spin"></div> Listening — speak now…</div>';
 
-  if(activeRecognition){try{activeRecognition.abort();}catch(e){}activeRecognition=null;}
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = new SpeechRecognition();
-  activeRecognition = recognition;
   recognition.continuous = true;
   recognition.interimResults = false;
   recognition.lang = 'en-AU';
@@ -1073,7 +1012,6 @@ window.capTranscribe = async function() {
 
   recognition.onend = () => {
     clearTimeout(silenceTimer);
-    activeRecognition = null;
     if (finalTranscript.trim()) {
       captureState.transcript = finalTranscript.trim();
       box.textContent = captureState.transcript;
@@ -1119,7 +1057,6 @@ window.capSave = async function() {
 }
 
 function resetCapture() {
-  if(activeRecognition){try{activeRecognition.abort();}catch(e){}activeRecognition=null;}
   stopCamera();
   captureState={photo:null,audioBlob:null,audioDataUrl:null,transcript:''};
   audioChunks=[];
@@ -1141,7 +1078,7 @@ function resetCapture() {
   document.getElementById('cap-level').value='';
   document.getElementById('cap-room').value='';
   document.getElementById('cap-con').value='';
-  const _dd=new Date();_dd.setDate(_dd.getDate()+7);document.getElementById('cap-due').value=_dd.toISOString().split('T')[0];
+  document.getElementById('cap-due').value='';
   document.getElementById('cap-desc').value='';
   document.getElementById('cap-status').value='Open';
   document.getElementById('btn-save-cap').disabled=false;
@@ -1158,7 +1095,7 @@ window.openModal = function(id) {
   if(d.photo){mp.src=d.photo;mp.style.display='block';}else mp.style.display='none';
   const ma=document.getElementById('m-audio');
   if(d.audio){ma.src=d.audio;ma.style.display='block';}else ma.style.display='none';
-  document.getElementById('m-desc').value=d.description||'';
+  document.getElementById('m-desc').textContent=d.description||'(no description)';
   document.getElementById('m-level').value=d.level||'';
   document.getElementById('m-room').value=d.room||'';
   document.getElementById('m-con').value=d.contractor||'';
@@ -1178,7 +1115,6 @@ window.saveModalEdits = async function() {
   setSyncing();
   try {
     await updateDoc(doc(db,'projects',currentProject,'defects',currentModalId),{
-      description:document.getElementById('m-desc').value,
       level:document.getElementById('m-level').value,
       room:document.getElementById('m-room').value,
       contractor:document.getElementById('m-con').value,
@@ -1217,63 +1153,6 @@ window.emailDefect = function() {
 }
 
 // ── EXPORT ──
-window.batchIssuePDF = function() {
-  if(selectedIds.size===0){toast('No defects selected');return;}
-  const selected=defects.filter(d=>selectedIds.has(d._id)).sort((a,b)=>(a.seqId||0)-(b.seqId||0));
-  const projName=(projects[currentProject]?.name||'Project').toUpperCase();
-  const dateStr=new Date().toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'});
-  const sbg={Open:'#fef3c7','In Progress':'#dbeafe',Closed:'#dcfce7',Overdue:'#fee2e2'};
-  const sfg={Open:'#92400e','In Progress':'#1e40af',Closed:'#166534',Overdue:'#991b1b'};
-  const defectRows=selected.map(d=>{
-    const due=d.dueDate?new Date(d.dueDate).toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'}):'—';
-    const photo=d.photo?`<img src="${d.photo}" style="width:100%;max-height:260px;object-fit:cover;border-radius:6px;display:block;">`:'<div style="width:100%;height:180px;background:#f0f0f0;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#aaa;">No photo</div>';
-    const ss=`background:${sbg[d.status]||'#f3f4f6'};color:${sfg[d.status]||'#374151'};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block;`;
-    const overdue=d.dueDate&&new Date(d.dueDate)<new Date()?'color:#dc2626;':'';
-    return `<div style="page-break-inside:avoid;margin-bottom:32px;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden;">
-      <div style="background:#1a1a1a;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-size:15px;font-weight:700;">Defect #${String(d.seqId).padStart(3,'0')}</div>
-        <span style="${ss}">${d.status}</span>
-      </div>
-      <div style="display:flex;min-height:200px;">
-        <div style="width:42%;flex-shrink:0;padding:14px;border-right:1px solid #e5e5e5;background:#fafafa;">${photo}</div>
-        <div style="flex:1;padding:14px 16px;font-size:12px;line-height:1.7;">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;">
-            <tr><td style="color:#888;width:90px;padding:3px 0;">Level</td><td style="font-weight:500;">${d.level||'—'}</td></tr>
-            <tr><td style="color:#888;padding:3px 0;">Room / Area</td><td style="font-weight:500;">${d.room||'—'}</td></tr>
-            <tr><td style="color:#888;padding:3px 0;">Contractor</td><td style="font-weight:500;">${d.contractor||'—'}</td></tr>
-            <tr><td style="color:#888;padding:3px 0;">Due Date</td><td style="font-weight:500;${overdue}">${due}</td></tr>
-            <tr><td style="color:#888;padding:3px 0;">Logged</td><td>${new Date(d.date).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}</td></tr>
-          </table>
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e5e5e5;">
-            <div style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Description</div>
-            <div style="font-size:13px;line-height:1.6;">${d.description||d.transcript||'(no description)'}</div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-  const contractors=[...new Set(selected.map(d=>d.contractor).filter(Boolean))];
-  const summary=contractors.map(c=>{const n=selected.filter(d=>d.contractor===c).length;return `<span style="background:#f0f0f0;color:#1a1a1a;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;">${c} - ${n} item${n!==1?'s':''}</span>`;}).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${projName} - Rectification Items</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1a1a;}
-  @media print{.no-print{display:none!important;}@page{margin:18mm 16mm;}}</style></head>
-  <body><div style="max-width:820px;margin:0 auto;padding:24px;">
-  <div style="padding:40px 0 32px;border-bottom:3px solid #1a1a1a;margin-bottom:32px;">
-    <div style="font-size:26px;font-weight:700;margin-bottom:6px;">${projName}</div>
-    <div style="font-size:15px;color:#555;margin-bottom:4px;">Rectification Items</div>
-    <div style="font-size:15px;color:#555;margin-bottom:12px;">${dateStr}</div>
-    <div style="font-size:12px;color:#888;">Total: <strong>${selected.length}</strong></div>
-  </div>
-  <div style="display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap;">${summary}</div>
-  ${defectRows}
-  </div>
-  <div class="no-print" style="position:fixed;bottom:24px;right:24px;">
-    <button onclick="window.print()" style="background:#1a1a1a;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:500;">Print / Save PDF</button>
-  </div></body></html>`;
-  const w=window.open('','_blank');w.document.write(html);w.document.close();
-  toast(`Issued ${selected.length} defect${selected.length!==1?'s':''}`);
-}
-
 window.exportCSV = function() {
   if(!defects.length){alert('No defects to export.');return;}
   const h=['ID','Date','Level','Room/Area','Description','Contractor','Status','Due Date'];
@@ -1498,12 +1377,8 @@ window.renderDashboard = function() {
 
 const _origRenderRegister = window.renderRegister;
 window.renderRegister = function() {
-  // Only filter if user is a contractor with ownOnly set
-  const profile = currentUserProfile;
   const origDefects = defects;
-  if (profile && profile.role !== 'admin' && profile.role !== 'pm' && profile.ownOnly && profile.company) {
-    defects = origDefects.filter(d => (d.contractor||'').toLowerCase() === profile.company.toLowerCase());
-  }
+  defects = filterDefectsForUser(origDefects);
   _origRenderRegister();
   defects = origDefects;
 }
