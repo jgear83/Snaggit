@@ -1486,8 +1486,12 @@ window.renderDashboard = function() {
 
 const _origRenderRegister = window.renderRegister;
 window.renderRegister = function() {
+  // Only filter if user is a contractor with ownOnly set
+  const profile = currentUserProfile;
   const origDefects = defects;
-  defects = filterDefectsForUser(origDefects);
+  if (profile && profile.role !== 'admin' && profile.role !== 'pm' && profile.ownOnly && profile.company) {
+    defects = origDefects.filter(d => (d.contractor||'').toLowerCase() === profile.company.toLowerCase());
+  }
   _origRenderRegister();
   defects = origDefects;
 }
