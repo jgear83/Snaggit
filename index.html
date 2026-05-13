@@ -526,6 +526,7 @@ let currentProject = null;
 let defects = [];
 let unsubscribe = null;
 let captureState = { photo: null, audioBlob: null, audioDataUrl: null, transcript: '' };
+let activeRecognition = null;
 let cameraStream = null, mediaRecorder = null, audioChunks = [];
 let currentModalId = null;
 let sortCol = 'seqId', sortDir = 1;
@@ -1041,8 +1042,10 @@ window.capTranscribe = async function() {
   box.className='tx-box';
   box.innerHTML='<div class="loading-row"><div class="spin"></div> Listening — speak now…</div>';
 
+  if(activeRecognition){try{activeRecognition.abort();}catch(e){}activeRecognition=null;}
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = new SpeechRecognition();
+  activeRecognition = recognition;
   recognition.continuous = true;
   recognition.interimResults = false;
   recognition.lang = 'en-AU';
@@ -1070,6 +1073,7 @@ window.capTranscribe = async function() {
 
   recognition.onend = () => {
     clearTimeout(silenceTimer);
+    activeRecognition = null;
     if (finalTranscript.trim()) {
       captureState.transcript = finalTranscript.trim();
       box.textContent = captureState.transcript;
@@ -1115,6 +1119,7 @@ window.capSave = async function() {
 }
 
 function resetCapture() {
+  if(activeRecognition){try{activeRecognition.abort();}catch(e){}activeRecognition=null;}
   stopCamera();
   captureState={photo:null,audioBlob:null,audioDataUrl:null,transcript:''};
   audioChunks=[];
