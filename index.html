@@ -246,6 +246,16 @@ audio{width:100%;margin-top:10px;border-radius:6px;}
       <div class="stat-card s-closed"><div class="stat-label">Closed</div><div class="stat-num" id="s-closed">—</div></div>
       <div class="stat-card s-overdue"><div class="stat-label">Overdue</div><div class="stat-num" id="s-overdue">—</div></div>
     </div>
+    <div id="chart-wrap" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:20px;align-items:center;gap:24px;flex-wrap:wrap;">
+      <div style="position:relative;width:180px;height:180px;flex-shrink:0;margin:0 auto;">
+        <canvas id="status-chart" width="180" height="180"></canvas>
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+          <div id="chart-total" style="font-family:'Syne',sans-serif;font-size:28px;font-weight:700;color:var(--text);line-height:1;">--</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:'IBM Plex Mono',monospace;">Total</div>
+        </div>
+      </div>
+      <div id="chart-legend" style="display:flex;flex-direction:column;gap:10px;flex:1;min-width:140px;"></div>
+    </div>
     <div class="filter-row">
       <select class="fsel" id="df-level" onchange="renderDashboard()"><option value="">All levels</option></select>
       <select class="fsel" id="df-room" onchange="renderDashboard()"><option value="">All rooms</option></select>
@@ -904,11 +914,13 @@ window.renderRegister = function() {
   let data=[...defects];
   const q=document.getElementById('reg-search').value.toLowerCase();
   const fs=document.getElementById('rf-status').value;
-  const fc=document.getElementById('rf-contractor').value;
-  const contractors=[...new Set(defects.map(d=>d.contractor).filter(Boolean))].sort();
+  // Repopulate contractor dropdown preserving selection
   const cfSel=document.getElementById('rf-contractor');
   const cfCur=cfSel.value;
+  const contractors=[...new Set(defects.map(d=>d.contractor).filter(Boolean))].sort();
   cfSel.innerHTML='<option value="">All contractors</option>'+contractors.map(c=>'<option '+(c===cfCur?'selected':'')+'>'+c+'</option>').join('');
+  // Read fc AFTER repopulating so it reflects actual selected value
+  const fc=cfSel.value;
   if(q) data=data.filter(d=>((d.description||'')+(d.room||'')+(d.contractor||'')+(d.level||'')).toLowerCase().includes(q));
   if(fs) data=data.filter(d=>d.status===fs);
   if(fc) data=data.filter(d=>d.contractor===fc);
