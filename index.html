@@ -811,7 +811,17 @@ window.showView = function(v) {
   document.querySelectorAll('.nav-tab').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   ['dashboard','register','capture'].forEach((n,i)=>{ if(n===v) document.querySelectorAll('.nav-tab')[i].classList.add('active'); });
-  if (v==='capture') { populateDataLists(); updateCapSaveBar(); }
+  if (v==='capture') {
+    populateDataLists();
+    updateCapSaveBar();
+    // Set default due date to +7 days if empty
+    const dueEl = document.getElementById('cap-due');
+    if (dueEl && !dueEl.value) {
+      const dd = new Date();
+      dd.setDate(dd.getDate() + 7);
+      dueEl.value = dd.toISOString().split('T')[0];
+    }
+  }
 }
 
 // ── DASHBOARD ──
